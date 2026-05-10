@@ -1,55 +1,46 @@
-@import "tailwindcss";
-
-@theme {
-  /* === Nothing Design System — Color Tokens === */
-  --color-black:           #000000;
-  --color-surface:         #111111;
-  --color-surface-raised:  #1A1A1A;
+:root {
+  /* Colors — Nothing Design dark-first */
+  --color-black: #000000;
+  --color-surface: #111111;
+  --color-surface-raised: #1a1a1a;
   --color-surface-overlay: #222222;
-  --color-text:            #E8E8E8;
-  --color-text-secondary:  #999999;
-  --color-text-disabled:   #555555;
-  --color-border:          #2A2A2A;
-  --color-border-focus:    #E8E8E8;
-  --color-critical:        #D71921;
+  --color-text: #e8e8e8;
+  --color-text-secondary: #999999;
+  --color-text-disabled: #555555;
+  --color-border: #2a2a2a;
+  --color-border-focus: #e8e8e8;
+  --color-critical: #d71921;
+  --color-success: #4a9e5c;
+  --color-warning: #d4a843;
 
-  /* === Typography === */
-  --font-body:    "Space Grotesk", system-ui, sans-serif;
-  --font-mono:    "Space Mono", "Courier New", monospace;
-  --font-display: "Doto", monospace;
+  /* Typography */
+  --font-body: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'Space Mono', 'Courier New', monospace;
+  --font-display: 'Doto', monospace;
 
-  /* === Font Sizes (three-layer hierarchy) === */
-  --font-size-display:  2.5rem;
-  --font-size-heading:  1.125rem;
-  --font-size-body:     0.875rem;
+  --font-size-display: 2.5rem;
+  --font-size-heading: 1.125rem;
+  --font-size-body: 0.875rem;
   --font-size-metadata: 0.6875rem;
 
-  /* === Spacing (8px baseline) === */
-  --spacing-px: 1px;
-  --spacing-0:  0px;
-  --spacing-1:  4px;
-  --spacing-2:  8px;
-  --spacing-3:  12px;
-  --spacing-4:  16px;
-  --spacing-5:  20px;
-  --spacing-6:  24px;
-  --spacing-8:  32px;
+  /* Spacing — 8px baseline */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
   --spacing-10: 40px;
   --spacing-12: 48px;
   --spacing-16: 64px;
 
-  /* === Component Geometry === */
-  --radius-none:      0px;
-  --border-width:     1px;
-  --progress-gap:     2px;
-  --progress-height:  6px;
-  --dot-color:        rgba(255,255,255,0.06);
-  --dot-spacing:      24px;
-
-  /* Suppress Tailwind defaults that violate Nothing DS */
-  --shadow-sm:  none;
-  --shadow-md:  none;
-  --shadow-lg:  none;
-  --shadow-xl:  none;
-  --shadow-2xl: none;
+  /* Geometry */
+  --radius-card: 16px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+  --progress-gap: 2px;
+  --progress-height: 6px;
+  --dot-color: rgba(255, 255, 255, 0.06);
+  --dot-spacing: 24px;
 }

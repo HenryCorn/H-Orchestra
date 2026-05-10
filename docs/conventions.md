@@ -1,81 +1,84 @@
-# H-Orchestra — TypeScript Conventions
+# Conventions
 
-## Strict Mode
+These rules apply to every file in `packages/`. They are enforced by reviewer + ESLint where possible.
 
-All packages use `strict: true`. This means:
-- No implicit `any` — annotate everything
-- No unchecked array access — guard `arr[0]` with a null check or non-null assertion with justification
-- No `// @ts-ignore` — fix the underlying type issue
-- No `as unknown as X` casts — design around the type system
+## TypeScript
 
-## Module Resolution
+- `strict: true`. No `// @ts-ignore`, `// @ts-expect-error`, or `as unknown as X` without a comment justifying it.
+- `noUncheckedIndexedAccess: true`. Treat array/object access as possibly undefined.
+- No `any`. When you cannot type something precisely, use `unknown` and narrow.
+- Public exports have explicit return types. Local variables can rely on inference.
 
-**Backend** uses `NodeNext` module resolution. All relative imports must use `.js` extension:
-```typescript
-import { parseFeatureList } from './feature-list.parser.js';  // correct
-import { parseFeatureList } from './feature-list.parser';      // wrong — fails at runtime
-```
+## Module resolution
 
-**Frontend** uses `Bundler` resolution (Vite handles it). No `.js` extension needed.
+- `module: NodeNext`, `moduleResolution: NodeNext`.
+- Relative imports use `.js` suffix even in `.ts` source: `import { x } from './x.js';`.
+- Cross-package imports via `@h-orchestra/shared`. Never reach into `packages/<other>/src/`.
 
-**Cross-package** imports always use the package name:
-```typescript
-import type { FeatureTask } from '@h-orchestra/shared';  // correct
-import type { FeatureTask } from '../../shared/src/...'; // wrong — never
-```
+## File naming
 
-## Nothing Design CSS Rules
+- Source files: `kebab-case.ts` (`feature-list.parser.ts`, `harness-aggregator.ts`).
+- React components: `PascalCase.tsx` (`TasksView.tsx`, `MetricDisplay.tsx`).
+- Tests: colocated under `__tests__/`, named `<unit>.test.ts` or `<unit>.test.tsx`.
+- Fixtures: `__tests__/fixtures/` with realistic content (this repo's own AGENTS.md, real feature_list, etc.).
 
-```typescript
-// CORRECT
-style={{ color: 'var(--color-text)', fontFamily: 'var(--font-mono)' }}
+## Backend patterns
 
-// WRONG — never use Tailwind color/typography utilities
-className="text-white bg-gray-900 font-mono"
-```
+- **Parsers** return `Result<T, ParseError>`. They never throw on malformed input.
+- **Routes** are Fastify plugin factories. Register in `packages/backend/src/routes/index.ts`. Use Fastify schema validation.
+- **Watchers** emit normalized events on the harness event bus. Subscribers stay decoupled.
+- **Atomic writes** for any mutation of `feature_list.json` or harness files: write to `<file>.tmp`, then `rename`.
+- **No global state.** Pass dependencies via Fastify decorators or function args.
 
-Layout Tailwind utilities are allowed: `flex`, `grid`, `items-center`, `gap-4`, `w-full`, `overflow-hidden`, `truncate`, `col-span-*`.
+## Frontend patterns
+
+- **Tokens.css only** for colors, typography, spacing. Tailwind utilities are allowed for layout (`flex`, `grid`, `gap-*`, `p-*`) but never for colors (`bg-red-500` is forbidden).
+- **One Zustand store** seeded from initial SSE snapshot, patched by subsequent events. No prop drilling.
+- **Hooks** wrap store selectors and SSE subscriptions. Components consume hooks, not stores directly.
+- **Views** live in `packages/frontend/src/components/<area>/<Area>View.tsx`. They are full panels rendered by the active route.
+- **Primitives** live in `packages/frontend/src/components/primitives/` and are token-driven.
+- **Touch targets** ≥44px for interactive elements (Nothing Design accessibility rule).
+
+## Nothing Design hard rules
+
+- No `box-shadow`, `text-shadow`, `filter: blur`, or `linear-gradient` outside reference dot-matrix backgrounds.
+- `border-radius` ≤ `--radius-card` (16px) for everything except pill buttons (`--radius-pill` 999px).
+- One accent moment per screen. `--color-critical` (#D71921) is reserved for errors and destructive actions.
+- Labels: Space Mono, ALL CAPS, `letter-spacing: 0.08em`.
+- Body text: Space Grotesk.
+- Display numbers (metrics, hero counts): Doto.
+- Use opacity or pattern to differentiate data, not extra color.
+
+## Error handling
+
+- At system boundaries (parsers, routes, fetch): catch and convert to typed errors.
+- Inside trusted code: let exceptions bubble; framework guarantees apply.
+- Never `catch (e) {}`. Either rethrow with context or convert to `Result.err`.
+
+## Logging
+
+- Backend uses Fastify's pino logger. `app.log.info / warn / error`.
+- No `console.log` in committed code (allowed in dev iteration, removed before review).
+
+## Testing
+
+- See `docs/verification.md` for the anti-mock policy. Summary: real Chokidar against tmp dirs, real Fastify instance for route tests, real DOM for component tests.
+- One test file per source file under `__tests__/`. Test name describes behaviour, not implementation: `it('rejects unknown status values', ...)` not `it('parseFeatureList', ...)`.
 
 ## Comments
 
-Write comments only for non-obvious WHY, never for WHAT:
-```typescript
-// CORRECT — explains a hidden constraint
-// .tmp suffix prevents watcher from reading partial writes
-await rename(tmp, target);
+- Default to no comments. Names should carry the meaning.
+- Write a comment only when the **why** is non-obvious (constraint, workaround, surprising invariant).
+- Never describe what the next line does.
+- No TODOs in committed code; convert to `feature_list.json` entries.
 
-// WRONG — describes what the code does
-// rename the temp file to the target path
-await rename(tmp, target);
-```
+## Commit messages
 
-No multi-line comment blocks. No JSDoc for internal functions.
+- Imperative, scoped by feature id: `feat(backend-parser-01): feature_list.json parser with Result<T,E>`.
+- One feature per PR. PR title = first line of the lead commit.
 
-## File Organization
+## Dependencies
 
-One concept per file. Named exports preferred over default for components (exception: route files use default exports because Fastify plugin convention).
-
-Parser files: `<name>.parser.ts`
-Route files: `<name>.route.ts`
-Component files: `<Name>View.tsx` for views, `<Name>.tsx` for primitives
-
-## Error Handling
-
-Parsers must never throw — return a safe fallback:
-```typescript
-try {
-  return JSON.parse(content) as FeatureList;
-} catch {
-  return { path: filePath, tasks: [], lastModified: new Date().toISOString() };
-}
-```
-
-Routes may throw — Fastify catches and returns 500. But prefer explicit error handling at system boundaries (user input, external APIs).
-
-## Adding to the Shared Package
-
-After modifying `packages/shared/src/`, run:
-```bash
-pnpm --filter @h-orchestra/shared build
-```
-before typechecking the backend or frontend. The shared package exports compiled `dist/` — the consumers see the built output.
+- Add a runtime dep only when justified in the implementer report.
+- Prefer the standard library and the existing toolchain over a new package.
+- Lockfile is committed; never run `pnpm install --no-frozen-lockfile` in CI.

@@ -1,79 +1,98 @@
-# H-Orchestra — Architecture
+# Architecture
 
-## Monorepo Structure
+## High level
 
-```
-H-Orchestra/
-├── packages/
-│   ├── shared/      TypeScript types + constants only (no runtime code)
-│   ├── backend/     Fastify 5 + Chokidar + SSE + REST API
-│   └── frontend/    React 19 + Vite 6 + Tailwind CSS 4 + Zustand
-```
-
-Dependency order: `shared` → `backend` and `shared` → `frontend`. The backend and frontend never import from each other. Always update shared types first.
-
-## SSE Pipeline
+H-Orchestra is a single-container web app that mounts a target repo, parses its harness artifacts, and exposes them via a Nothing Design UI.
 
 ```
-Chokidar detects file change
-  → HarnessWatcher.handleChange()
-  → ParserRegistry.findParser(filePath)
-  → parser.parse(filePath, content)   → typed payload
-  → watcher.emit(eventType, payload)
-  → server.ts listener
-  → fastify.broadcastSSE(event)
-  → all connected EventSource clients
-  → harness.store.ts dispatch()
-  → Zustand state update
-  → React re-render
+┌─────────── Docker container (port 3001) ──────────┐
+│                                                   │
+│   ┌─────── @h-orchestra/backend (Fastify) ────┐   │
+│   │  Chokidar watcher                         │   │
+│   │     ↓ (debounce 150ms)                    │   │
+│   │  ParserRegistry → parsed snapshots        │   │
+│   │     ↓                                     │   │
+│   │  REST routes (/api/*)                     │   │
+│   │  SSE stream (/events)                     │   │
+│   │  Static SPA serve (/, /assets/*)          │   │
+│   └────────────┬─────────────┬────────────────┘   │
+│                │             │                    │
+│                │             │ static assets      │
+│                ▼             ▼                    │
+│   ┌─────── @h-orchestra/frontend (React) ────┐    │
+│   │  EventSource → Zustand store              │   │
+│   │  Views: Dashboard, Tasks, Agents, Skills, │   │
+│   │         Diagram, Scaffold, Tracing        │   │
+│   └───────────────────────────────────────────┘   │
+│                                                   │
+│   Mount: /mounted-repo (ro, set via REPO_PATH)    │
+└───────────────────────────────────────────────────┘
 ```
 
-## Parser Registry Pattern
+## Packages
 
-`packages/backend/src/parsers/index.ts` maintains a list of `{ glob, eventType, parse }` objects. `findParser(filePath)` matches by substring — a file path containing `"feature_list.json"` matches the `**/feature_list.json` glob.
+- `packages/shared` — TypeScript types, constants, error enums. Zero runtime deps. Built first; consumed by both backend and frontend.
+- `packages/backend` — Fastify 5 server, Chokidar watcher, gray-matter for frontmatter, parsers + routes. Serves the built frontend as static files in production.
+- `packages/frontend` — React 19 + Vite 6 + Zustand+immer + Mermaid 11. Tailwind 4 for layout utilities only; all colors/typography come from `tokens.css` CSS variables.
 
-Adding a new file type: create a parser, register it in `createDefaultRegistry()`, add the event type to `SSEEvent` in shared, handle it in `harness.store.ts`.
+Cross-package imports always go through `@h-orchestra/shared`. Backend never imports from frontend; frontend never imports from backend.
 
-## Harness File Auto-Discovery
+## Module resolution
 
-On startup, `buildHarnessSnapshot(mountPath)` runs parallel `fast-glob` queries for all known harness patterns and reads the results. The snapshot is stored in `fastify.currentSnapshot` and pushed to new SSE clients immediately on connection — no REST poll needed.
+- TypeScript NodeNext throughout. Relative imports use the `.js` suffix even from `.ts` source (e.g. `import { foo } from './foo.js'`). This is a NodeNext requirement, not optional.
+- Workspace deps via `workspace:*` in `package.json`.
+- Path aliases are forbidden — they break tsc and Node's resolver alignment.
 
-## Supported Harness Files
+## Event flow
 
-| File pattern | Purpose |
-|---|---|
-| `CLAUDE.md` / `AGENTS.md` | System prompt / navigation map |
-| `feature_list.json` | Task list with status tracking |
-| `progress/current.md` | Live session state |
-| `progress/history.md` | Completed session archive |
-| `CHECKPOINTS.md` | Quality gate definitions |
-| `init.sh` | Bootstrap + verification script |
-| `.claude/agents/*.md` | Agent role definitions (leader, implementer, reviewer) |
-| `.claude/skills/*/SKILL.md` | Claude Code skill definitions (legacy) |
-
-## Frontend State
-
-Zustand store (`harness.store.ts`) is the single source of truth. It is seeded from the initial `harness:snapshot` SSE event and patched by subsequent events. Components read from the store via selectors — never from REST directly, except for data outside the SSE stream (tracing, git log).
-
-## Nothing Design System
-
-Colors: only `var(--color-*)` custom properties. Never Tailwind color utilities.
-Typography: `var(--font-body)` for prose, `var(--font-mono)` for labels/code, `var(--font-display)` for large metrics.
-Layout: Tailwind layout utilities only (`flex`, `grid`, `w-full`, `gap-*`, `overflow-hidden`).
-No shadows, border-radius, gradients, or blur.
-Red (`var(--color-critical)`) reserved for errors and destructive actions only.
-
-## Atomic File Writes
-
-Any route that mutates `feature_list.json` must use write-to-temp-then-rename:
-```typescript
-const tmp = targetPath + '.tmp';
-await writeFile(tmp, content, 'utf-8');
-await rename(tmp, targetPath);
 ```
-This prevents the file watcher from reading a partial write.
+file change in /mounted-repo
+   ↓ Chokidar
+   ↓ 150ms debounce per path
+HarnessChanged event on backend bus
+   ↓ ParserRegistry re-parses affected files
+   ↓ buildHarnessSnapshot composes new HarnessState
+   ↓ SSE broadcaster emits typed event
+   ↓ EventSource on frontend
+   ↓ Zustand store dispatches (immer-immutable update)
+React components re-render
+```
 
-## Production vs Development
+## SSE event contract
 
-Development: Vite dev server on port 5173 proxies `/api` to Fastify on port 3001.
-Production: Fastify serves `packages/frontend/dist/` via `@fastify/static` with SPA fallback. Single port (3001).
+Defined in `packages/shared/src/types/events.ts` as a discriminated union keyed on `event` name. Payload constants in `packages/shared/src/constants/sse-events.ts`. Adding a new event type requires updating both files plus a parser/route that emits it and a store branch that handles it.
+
+## Tracing adapter pattern
+
+Tracing is optional. Two adapters: Langfuse (self-hosted, `LANGFUSE_BASE_URL` + `LANGFUSE_SECRET_KEY`) and Helicone (`HELICONE_API_KEY`). Selection happens at boot from env. If no adapter is configured, `/api/tracing` returns `[]` — never an error. The adapter contract is one method: `getRecentTraces(limit: number): Promise<TraceSummary[]>`.
+
+LangSmith is intentionally out of scope.
+
+## Templates
+
+Built-in templates (Python, .NET) live in `packages/backend/templates/<id>/` as a directory of files with `{{placeholder}}` syntax. User-uploaded ZIPs are extracted into `${TEMPLATES_DIR:-/data/templates}/<id>/` on receipt and scanned on boot.
+
+Scaffold validates required placeholders before writing any file (atomic — all or nothing). Refuses to overwrite a non-empty target.
+
+## Cross-platform watcher
+
+Chokidar's native FSEvents work on macOS and inotify on Linux. Docker bind mounts on macOS and Windows do not propagate native events reliably, so the container sets `CHOKIDAR_USEPOLLING=true` by default. The polling interval is 1000ms — slow enough to keep CPU low, fast enough that the UI feels live.
+
+## Storage
+
+There is no database. All state is on disk in the mounted repo. The backend has a small writeable data dir (`/data`) only for uploaded templates.
+
+## Production serving
+
+In production the backend serves the built frontend bundle from `packages/backend/public/` (copied during multi-stage Docker build). One port, one process, no nginx layer. The Vite dev server is a development-only convenience that proxies API calls to the backend.
+
+## Build pipeline
+
+```
+pnpm install --frozen-lockfile
+   → pnpm --filter @h-orchestra/shared build      (tsc -b)
+   → pnpm --filter @h-orchestra/backend build     (tsc -b)
+   → pnpm --filter @h-orchestra/frontend build    (tsc -b && vite build)
+```
+
+The Dockerfile runs all three in stage 1, then stage 2 copies `packages/backend/dist` plus `node_modules` plus the frontend `dist` into the runtime image.

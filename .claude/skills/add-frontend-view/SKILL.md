@@ -1,52 +1,61 @@
 ---
 name: add-frontend-view
-description: Add a new view panel to the H-Orchestra UI following the Nothing Design system
-trigger: add a view for
-version: 1.0.0
-author: H-Orchestra
-tags:
-  - frontend
-  - react
-  - nothing-design
-  - typescript
+description: Add a new top-level view (route) to packages/frontend/. Use when the feature is a frontend-view-* item — a full panel rendered by the active-view router.
 ---
 
-## Context
+# add-frontend-view
 
-Views are full-panel components rendered by `App.tsx` based on `useUIStore().activeView`. Navigation is controlled by the `Sidebar.tsx` `NAV_ITEMS` array. Each view should follow the Nothing Design system strictly — CSS custom properties for all colors/typography, Tailwind only for layout utilities.
+Recipe for adding a top-level view.
+
+## Where things live
+
+```
+packages/frontend/src/
+  components/
+    <area>/
+      <Area>View.tsx              ← the panel
+      sub-components.tsx          ← cards, panels owned by this view
+  hooks/
+    use<Area>.ts                  ← selector + SSE wiring
+  stores/
+    <area>.store.ts               ← Zustand slice (or extend harness.store)
+  api/
+    client.ts                     ← add fetch<Area>() method
+  App.tsx                         ← register in ActiveView union + router
+  components/layout/Sidebar.tsx   ← add nav entry
+```
 
 ## Steps
 
-1. **Create the view component** at `packages/frontend/src/components/<name>/<Name>View.tsx`
-   - Wrap content in a `<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)', maxWidth: 900 }}>` container
-   - Start with an `<h1 className="text-heading">VIEW NAME</h1>` heading
-   - Use existing primitives from `components/primitives/`: `Card`, `PillButton`, `Badge`, `SegmentedProgress`, `MetricDisplay`
-   - Labels: always use `<span className="label">LABEL TEXT</span>` (auto uppercase, mono)
-   - Code/paths: `fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-metadata)'`
-   - Never use Tailwind color or typography utilities
+1. **Define types** if the view needs new ones — usually they already live in `@h-orchestra/shared`.
+2. **Add an API client method** in `src/api/client.ts` matching the backend route.
+3. **Add a hook** `src/hooks/use<Area>.ts` that selects from the store and triggers the initial fetch.
+4. **Build the view component** at `src/components/<area>/<Area>View.tsx`:
+   - Token-driven styling: `var(--color-*)`, `var(--font-*)`, `var(--spacing-*)`.
+   - Zero hex literals. Zero Tailwind color utilities.
+   - Touch targets ≥44px.
+   - Use the design-system primitives (`Card`, `Badge`, `PillButton`, etc.) — never reimplement.
+   - Empty states are explicit text (`[NO DATA]`), not blank panels.
+5. **Register in App.tsx**:
+   - Add the view to the `ActiveView` union type.
+   - Add a `case` to the active-view router.
+6. **Add a Sidebar entry** in `src/components/layout/Sidebar.tsx`. Space Mono, ALL CAPS, with a keyboard shortcut number.
+7. **Hook up SSE.** If the view needs live updates, ensure the relevant SSE event is dispatched into the store by `useSSE`.
+8. **Write tests** with `@testing-library/react`:
+   - Render the view inside a real Zustand store
+   - Assert against rendered DOM (`getByRole`, `getByText`)
+   - Use `userEvent` for interactions
+   - **Do not** use `toMatchSnapshot` as the only assertion
+9. **Run `pnpm --filter @h-orchestra/frontend typecheck && test`**.
+10. **Run `./init.sh`**.
+11. **Smoke check** in the dev server: open http://localhost:5173, navigate to the new view, confirm it renders without console errors.
 
-2. **Add the view name** to the `ActiveView` union in `packages/frontend/src/stores/ui.store.ts`
-   ```typescript
-   export type ActiveView = 'dashboard' | 'tasks' | ... | '<name>';
-   ```
+## Anti-patterns
 
-3. **Add a nav entry** in `packages/frontend/src/components/layout/Sidebar.tsx`
-   - Add to `NAV_ITEMS` array: `{ view: '<name>', label: 'LABEL', glyph: '◈' }`
-   - Pick an unused Unicode glyph (geometric/technical characters preferred)
-   - Label: ALL CAPS, max 6 characters
-
-4. **Register the view** in `packages/frontend/src/App.tsx`
-   - Import: `import { <Name>View } from './components/<name>/<Name>View';`
-   - Add: `{activeView === '<name>' && <<Name>View />}`
-
-5. **Create a hook** if the view needs data (at `packages/frontend/src/hooks/use<Name>.ts`)
-   - Prefer Zustand selectors from `harness.store.ts` for harness data
-   - Use `useEffect` + `api.<name>.list()` for data not in the SSE stream
-
-6. **Run typecheck**: `pnpm typecheck`
-
-7. **Visual check**: Start `pnpm dev`, navigate to the new view, verify:
-   - Text uses Space Grotesk (body) or Space Mono (labels/metadata)
-   - Background is `var(--color-surface)` for cards, `#000` for root
-   - No colored elements except `var(--color-critical)` for errors
-   - Borders are 1px solid `var(--color-border)` (#2A2A2A)
+- Tailwind color utilities (`bg-red-500`, `text-gray-400`). Use `var(--color-*)` only.
+- Inline hex literals or RGB strings. Tokens only.
+- Modal popups for content (Nothing Design rule — expand inline).
+- Skeleton loading screens. Use `[LOADING…]` text.
+- Toast notifications. Use inline `[SAVED]` text near the action.
+- Sad-face illustrations or emoji as UI elements.
+- Snapshot-only tests.

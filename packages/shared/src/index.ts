@@ -1,8 +1,8 @@
-export * from './types/harness.js';
-export * from './types/events.js';
-export * from './types/task.js';
-export * from './types/tracing.js';
-export * from './types/template.js';
-export * from './types/gitlog.js';
-export * from './constants/file-patterns.js';
-export * from './constants/sse-events.js';
+/**
+ * @h-orchestra/shared
+ *
+ * Cross-package types and constants. Real types are added by future features
+ * (see infra-01 in feature_list.json). This placeholder exists so backend and
+ * frontend can resolve `@h-orchestra/shared` immediately after bootstrap.
+ */
+export const VERSION = '0.0.0';

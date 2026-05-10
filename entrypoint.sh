@@ -1,42 +1,26 @@
-#!/bin/sh
+#!/usr/bin/env sh
+# H-Orchestra container entrypoint.
+# Normalizes MOUNT_PATH and prints platform info before exec'ing the main command.
+
 set -e
 
-# --- Platform detection ---
-detect_platform() {
-  if [ -f /proc/version ]; then
-    if grep -qi microsoft /proc/version 2>/dev/null; then
-      echo "wsl2"
-    else
-      echo "linux"
-    fi
-  elif [ "$(uname)" = "Darwin" ]; then
-    echo "macos"
-  else
-    echo "unknown"
-  fi
-}
+MOUNT_PATH="${MOUNT_PATH:-/mounted-repo}"
 
-PLATFORM=$(detect_platform)
+# Strip trailing slash, swap backslashes (handles Windows-style host paths).
+MOUNT_PATH="$(printf '%s' "$MOUNT_PATH" | tr '\\' '/' | sed 's:/*$::')"
+export MOUNT_PATH
 
-# --- WSL2 /mnt/c/ penalty warning ---
-if [ "$PLATFORM" = "wsl2" ]; then
-  case "${MOUNT_PATH:-}" in
-    /mnt/[a-zA-Z]/*)
-      echo "WARNING: H-Orchestra detected the project is mounted from a Windows drive (${MOUNT_PATH})."
-      echo "WARNING: File watching across the WSL2/NTFS boundary has high latency and may miss events."
-      echo "WARNING: For best performance, clone your project under ~/projects/ in the WSL2 home directory."
-      ;;
-  esac
-fi
+echo "------------------------------------------------------------"
+echo "H-Orchestra entrypoint"
+echo "  uid:gid     : $(id -u):$(id -g)"
+echo "  PORT        : ${PORT:-3001}"
+echo "  MOUNT_PATH  : ${MOUNT_PATH}"
+echo "  CHOKIDAR_USEPOLLING : ${CHOKIDAR_USEPOLLING:-unset}"
+echo "------------------------------------------------------------"
 
-# --- Dynamic UID/GID mapping (Linux only, when HOST_UID/HOST_GID are set) ---
-if [ "$PLATFORM" = "linux" ] && [ -n "${HOST_UID:-}" ] && [ -n "${HOST_GID:-}" ]; then
-  echo "H-Orchestra: mapping container process to UID=${HOST_UID} GID=${HOST_GID}"
-  # Create group if it does not already exist
-  getent group "${HOST_GID}" > /dev/null 2>&1 || addgroup -g "${HOST_GID}" appgroup
-  # Create user if it does not already exist
-  id -u appuser > /dev/null 2>&1 || adduser -u "${HOST_UID}" -G appgroup -D -s /bin/sh appuser
-  exec su-exec appuser "$@"
+if [ ! -d "${MOUNT_PATH}" ]; then
+  echo "[entrypoint] WARNING: ${MOUNT_PATH} is not a directory inside the container."
+  echo "             Pass -v <host-path>:${MOUNT_PATH}:ro on docker run, or set REPO_PATH for compose."
 fi
 
 exec "$@"

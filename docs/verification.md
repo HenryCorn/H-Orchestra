@@ -1,77 +1,84 @@
-# H-Orchestra — Verification Procedures
+# Verification
 
-## Level 1 — Type Safety (mandatory after every change)
+The reviewer's C4 gate (`CHECKPOINTS.md`) demands "real verification — no mocks". This file says exactly what that means.
 
-```bash
-pnpm typecheck
-```
+## Why no mocks
 
-All three packages must pass with zero errors. If shared types changed, build shared first:
-```bash
-pnpm --filter @h-orchestra/shared build && pnpm typecheck
-```
+We're building a tool that watches files, parses harness artifacts, and serves them over HTTP/SSE. Every layer touches real filesystem or network state. Mocking those layers tests the mock, not the code. Mocked tests pass while production breaks — that's how the previous attempt accumulated technical debt.
 
-## Level 2 — Build (mandatory before marking done)
+## What to do instead
 
-```bash
-pnpm build
-```
+### Backend parsers
 
-Compiles: shared → frontend (Vite) → backend (tsc). Both must succeed. Vite chunk size warnings are acceptable.
+- Test against fixture files in `packages/backend/src/parsers/__tests__/fixtures/`.
+- Fixtures should include: a happy path, a malformed example, and an edge case (empty file, missing field).
+- Use `node:fs/promises` directly. **Do not `vi.mock('node:fs')`**.
 
-## Level 3 — Unit Tests (mandatory for parser/template changes)
+### Backend routes
 
-```bash
-pnpm --filter @h-orchestra/backend test
-```
+- Spin up a real Fastify instance per test (`fastify()` then `await app.ready()`).
+- Make real HTTP requests via `app.inject()` or `supertest`.
+- Read and write actual files in a `mkdtemp()` directory; clean up in `afterEach`.
+- **Do not mock `fastify`, `node:http`, or any Fastify plugin.**
 
-All tests must pass. New parsers require a test file at `packages/backend/src/parsers/__tests__/<name>.parser.test.ts` with at least:
-- Happy path with a realistic fixture
-- Graceful fallback on malformed input
-- Path/metadata field correctness
+### Backend watcher
 
-New template functions require tests in `packages/backend/src/templates/__tests__/`.
+- Spin up a real Chokidar instance against a tmp directory.
+- Trigger filesystem events with real `fs.writeFile` / `fs.unlink`.
+- Assert events arrive within a tolerance (e.g. `await waitFor(() => events.length === 1, { timeout: 1000 })`).
 
-## Level 4 — Harness Verification (mandatory before session closure)
+### Frontend components
 
-```bash
-bash init.sh
-```
+- Use `@testing-library/react` to render and `userEvent` to interact.
+- Assert against rendered DOM via `getByRole`, `getByText`, `findByLabelText`.
+- **Do not use `toMatchSnapshot()` as the only assertion** — snapshots silently update and don't enforce behaviour.
 
-Must exit 0. This validates Node.js version, dependencies, shared build, typecheck, and full build. If it fails, the task is not complete.
+### Frontend hooks
 
-## Level 5 — Manual Smoke Test (for new parsers and SSE events)
+- Test hooks via `renderHook` from `@testing-library/react`.
+- Real Zustand store, real reducer.
+- Mock only network at the boundary using `vi.spyOn(globalThis, 'fetch')` returning a `Response`.
 
-Start the backend pointing at a test repo:
-```bash
-MOUNT_PATH=/path/to/harness-repo CHOKIDAR_USEPOLLING=false \
-  pnpm --filter @h-orchestra/backend dev
-```
+### Mermaid output
 
-Then in a second terminal:
-```bash
-curl -N --max-time 10 http://localhost:3001/api/events
-```
+- Validate with `mermaid.parse()` rather than string equality. The library handles whitespace and formatting; we only care that the output is a valid sequence diagram with the expected actors and messages.
 
-Edit the relevant file in the test repo. Confirm the correct SSE event type appears in the stream within 1 second.
+### End-to-end
 
-## Level 6 — Visual Check (for new frontend views)
+- E2E tests run a real backend bound to an ephemeral port and a real headless browser (Playwright) against the served frontend.
+- The mounted repo is a fixture in `e2e/fixtures/<harness-name>/`.
+- Assertions are against rendered text and HTTP responses, not internal state.
 
-Start the full dev stack:
-```bash
-MOUNT_PATH=/path/to/harness-repo pnpm dev
-```
+## Acceptable mocks
 
-Open `http://localhost:5173`. Navigate to the new view and verify:
-- Text uses Space Grotesk (body) or Space Mono (labels)
-- Background is `#000` for root, `var(--color-surface)` for cards
-- No colored elements except `var(--color-critical)` for errors
-- Borders are `1px solid var(--color-border)` (`#2A2A2A`)
-- No Tailwind color classes visible in DevTools
+There are three legitimate cases for a mock:
 
-## Test Repo
+1. **Network at the system boundary.** Mocking `fetch` against an external API (Langfuse, Helicone) is fine. Use `vi.spyOn(globalThis, 'fetch')` returning a real `Response` object.
+2. **Time.** `vi.useFakeTimers()` to test debounce / throttle / heartbeat behaviour.
+3. **Random.** `vi.spyOn(crypto, 'randomUUID')` if you need deterministic ids in a test.
 
-For manual testing, point `MOUNT_PATH` at a clone of:
-`https://github.com/betta-tech/ejemplo-harness-subagentes`
+Anything else needs a comment in the test explaining why.
 
-This repo has the full multi-agent harness structure: `.claude/agents/`, `progress/`, `CHECKPOINTS.md`, `feature_list.json`, `init.sh`, `AGENTS.md`.
+## Pre-commit verification
+
+The implementer's `progress/impl_<id>.md` must show evidence of:
+
+- `pnpm typecheck` exit 0
+- `pnpm test` exit 0 with at least one new test exercising the feature
+- `./init.sh` exit 0
+
+The reviewer re-runs all three and rejects with `CHANGES_REQUESTED:` if any fails.
+
+## CI verification
+
+The `ci.yml` workflow runs the full stack on every PR:
+
+- `pnpm install --frozen-lockfile`
+- `pnpm typecheck`
+- `pnpm -r build`
+- `pnpm test`
+- `actionlint` on workflows
+
+The `harness.yml` workflow runs `./init.sh` and asserts feature_list invariants. The `docker.yml` workflow builds the image and curls `/health` against the running container.
+
+A PR cannot merge with any of these failing.

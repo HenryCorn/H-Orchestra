@@ -1,50 +1,56 @@
-# H-Orchestra — Checkpoints
+# CHECKPOINTS.md — Five Quality Gates
 
-Objective quality gates. A feature is only `completed` when all relevant checkpoints pass.
+Every feature passes through these five gates before being marked `done`. The reviewer evaluates each box in `progress/review_<id>.md`.
 
-## C1 — Harness Complete
+## C1 — Harness completeness
 
-- [ ] `AGENTS.md` exists at repo root
-- [ ] `CLAUDE.md` exists at repo root
-- [ ] `CHECKPOINTS.md` exists (this file)
-- [ ] `init.sh` exists and is executable
-- [ ] `progress/current.md` exists
-- [ ] `progress/history.md` exists
-- [ ] `docs/architecture.md` exists
-- [ ] `docs/conventions.md` exists
-- [ ] `docs/verification.md` exists
-- [ ] `.claude/agents/leader.md` exists
-- [ ] `.claude/agents/implementer.md` exists
-- [ ] `.claude/agents/reviewer.md` exists
+The structural files exist and parse:
 
-Verify: `bash init.sh` exits 0
+- [ ] `CLAUDE.md`, `AGENTS.md`, `CHECKPOINTS.md` present
+- [ ] `feature_list.json` valid JSON; every status is one of `pending | in_progress | done | blocked`
+- [ ] `progress/current.md` and `progress/history.md` present
+- [ ] `docs/architecture.md`, `docs/conventions.md`, `docs/verification.md` present
+- [ ] `.claude/agents/leader.md`, `implementer.md`, `reviewer.md` present
+- [ ] `init.sh` present and executable
 
-## C2 — State Coherent
+## C2 — State coherence
 
-- [ ] At most 1 task has `status: "in_progress"` in `feature_list.json`
-- [ ] `progress/current.md` describes the in-progress task (or says "No active session")
-- [ ] No task is `completed` unless `pnpm typecheck` and `pnpm build` passed for it
+The feature_list and progress files agree on reality:
 
-## C3 — Code Health
+- [ ] At most one feature has `status: "in_progress"`
+- [ ] Every `progress/impl_<id>.md` matches a feature id in `feature_list.json`
+- [ ] Every `progress/review_<id>.md` matches a feature id
+- [ ] `progress/current.md` `Active feature` field matches the actual `in_progress` feature (or `none`)
+- [ ] No orphan reports (impl/review for a feature that doesn't exist)
 
-- [ ] `pnpm typecheck` — zero errors across all 3 packages
-- [ ] `pnpm build` — completes without errors
-- [ ] No `// @ts-ignore` comments in source
-- [ ] No Tailwind color utilities (`text-white`, `bg-gray-*`, etc.) in `.tsx` files
-- [ ] All CSS colors use `var(--color-*)` custom properties
-- [ ] Backend `.ts` imports use `.js` extension (NodeNext resolution)
-- [ ] Cross-package imports use `@h-orchestra/shared`, never relative paths
+## C3 — Architecture compliance
 
-## C4 — Tests Pass
+The implementation respects the standards:
 
-- [ ] `pnpm --filter @h-orchestra/backend test` — all tests pass, 0 failures
-- [ ] New parsers have corresponding unit tests in `__tests__/`
-- [ ] New template functions have unit tests
+- [ ] Follows `docs/architecture.md` (correct package, correct layer)
+- [ ] Follows `docs/conventions.md` (TS strict, NodeNext `.js` suffixes, kebab-case files, tokens.css for colors)
+- [ ] Leader did not edit `packages/**` source or tests
+- [ ] Cross-package imports go through `@h-orchestra/shared`
+- [ ] No `any`, `as unknown as`, `// @ts-ignore` without a code comment justifying it
 
-## C5 — Session Closure
+## C4 — Real verification
 
-- [ ] `progress/current.md` is empty or contains "No active session"
-- [ ] Completed work is appended to `progress/history.md`
-- [ ] `feature_list.json` accurately reflects all task statuses
-- [ ] `bash init.sh` exits 0 after all changes
-- [ ] Changes are committed: `git commit -m "feat: <task label>"`
+Tests are real and the build is clean:
+
+- [ ] `./init.sh` exits 0
+- [ ] `pnpm typecheck` exits 0
+- [ ] `pnpm -r build` exits 0
+- [ ] `pnpm test` exits 0 with at least one test that exercises the feature
+- [ ] No mocked file system, mocked Fastify, or mocked SSE in new tests
+- [ ] Frontend tests assert against rendered DOM, not snapshot strings
+- [ ] Mermaid output validated by parsing, not by string match
+
+## C5 — Clean closure
+
+The session is closeable:
+
+- [ ] `progress/review_<id>.md` exists and verdict is `APPROVED`
+- [ ] `progress/history.md` has an entry for this feature
+- [ ] `progress/current.md` has been cleared (active feature: none) **after** the leader marks done
+- [ ] `feature_list.json` shows the feature `done`
+- [ ] No untracked files outside `progress/` and `node_modules/`

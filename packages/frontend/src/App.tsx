@@ -1,39 +1,39 @@
-import './styles/components.css';
-import { useSSE } from './hooks/useSSE';
-import { useUIStore } from './stores/ui.store';
-import { useHarnessLoading } from './hooks/useHarness';
-import { useKeyboardNav } from './hooks/useKeyboardNav';
-import { AppShell } from './components/layout/AppShell';
-import { ErrorBoundary } from './components/primitives/ErrorBoundary';
-import { DashboardView } from './components/dashboard/DashboardView';
-import { TasksView } from './components/tasks/TasksView';
-import { DiagramView } from './components/diagram/DiagramView';
-import { AgentsView } from './components/agents/AgentsView';
-import { TracingView } from './components/tracing/TracingView';
-import { ScaffoldView } from './components/scaffold/ScaffoldView';
-
 export function App() {
-  const { status } = useSSE();
-  const activeView = useUIStore((s) => s.activeView);
-  const loading = useHarnessLoading();
-  useKeyboardNav();
-
   return (
-    <AppShell sseStatus={status}>
-      {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <span className="text-metadata">Initializing...</span>
-        </div>
-      ) : (
-        <>
-          {activeView === 'dashboard' && <ErrorBoundary viewName="DASHBOARD"><DashboardView /></ErrorBoundary>}
-          {activeView === 'tasks' && <ErrorBoundary viewName="TASKS"><TasksView /></ErrorBoundary>}
-          {activeView === 'diagram' && <ErrorBoundary viewName="DIAGRAM"><DiagramView /></ErrorBoundary>}
-          {activeView === 'agents' && <ErrorBoundary viewName="AGENTS"><AgentsView /></ErrorBoundary>}
-          {activeView === 'tracing' && <ErrorBoundary viewName="TRACING"><TracingView /></ErrorBoundary>}
-          {activeView === 'scaffold' && <ErrorBoundary viewName="SCAFFOLD"><ScaffoldView /></ErrorBoundary>}
-        </>
-      )}
-    </AppShell>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'var(--color-black)',
+        color: 'var(--color-text)',
+        fontFamily: 'var(--font-body)',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 'var(--spacing-8)',
+      }}
+    >
+      <div style={{ textAlign: 'center' }}>
+        <p
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-size-metadata)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--color-text-secondary)',
+            marginBottom: 'var(--spacing-4)',
+          }}
+        >
+          BOOTSTRAPPED
+        </p>
+        <h1
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-size-display)',
+            margin: 0,
+          }}
+        >
+          H-ORCHESTRA
+        </h1>
+      </div>
+    </main>
   );
 }

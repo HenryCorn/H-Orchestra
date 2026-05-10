@@ -1,51 +1,67 @@
 ---
 name: add-backend-parser
-description: Add a new file parser that watches a new harness file type and broadcasts SSE events when it changes
-trigger: add a parser for
-version: 1.0.0
-author: H-Orchestra
-tags:
-  - backend
-  - parser
-  - sse
-  - typescript
+description: Add a new file/format parser to packages/backend/src/parsers/. Use when a feature parses a new harness artifact (markdown, JSON, YAML) into a typed shape.
 ---
 
-## Context
+# add-backend-parser
 
-The parser pipeline: Chokidar detects a file change → `ParserRegistry.findParser(filePath)` matches by glob → `parser.parse(filePath, content)` returns a typed payload → the watcher emits `parser.eventType` → `server.ts` catches it → `fastify.broadcastSSE(event)` → connected browser clients receive the SSE event → `harness.store.ts` `dispatch()` updates Zustand state.
+Recipe for adding a parser. Implementer uses this when the feature is `backend-parser-*`.
+
+## Where things live
+
+```
+packages/backend/src/parsers/
+  index.ts                       ← ParserRegistry, buildHarnessSnapshot
+  <name>.parser.ts               ← new parser
+  __tests__/
+    fixtures/                    ← real fixture files
+    <name>.parser.test.ts        ← tests against fixtures
+```
+
+## Contract
+
+Every parser exports a single function:
+
+```ts
+export async function parse<Name>(filePath: string): Promise<Result<<Name>, ParseError>>
+```
+
+- Returns `Result<T, ParseError>` (from `@h-orchestra/shared`). Never throws on malformed input.
+- File-not-found returns `Result.err({ code: 'FILE_NOT_FOUND', path })`.
+- Malformed input returns `Result.err({ code: 'PARSE_ERROR', path, detail })`.
+- Success returns `Result.ok(<T>)`.
 
 ## Steps
 
-1. **Define the SSE event shape** in `packages/shared/src/types/events.ts`
-   - Add a new interface (e.g., `interface MyFileUpdatedEvent { type: 'myfile:updated'; payload: MyType }`)
-   - Add it to the `SSEEvent` union
-   - Add a type guard: `export function isMyFileEvent(e: SSEEvent): e is MyFileUpdatedEvent { return e.type === 'myfile:updated'; }`
-   - Export the new type from `packages/shared/src/index.ts`
+1. **Define the output type** in `packages/shared/src/types/<name>.ts` and re-export from `packages/shared/src/index.ts`.
+2. **Add parser error codes** to `packages/shared/src/errors.ts` if the existing taxonomy doesn't fit.
+3. **Create the parser file** `packages/backend/src/parsers/<name>.parser.ts`.
+   - Read with `fs.readFile(path, 'utf8')`.
+   - Catch `ENOENT` → `Result.err({ code: 'FILE_NOT_FOUND', path })`.
+   - Parse (gray-matter for markdown frontmatter, `JSON.parse` with try/catch for JSON).
+   - Validate shape; collect issues into a single `ParseError`.
+4. **Add fixtures** in `packages/backend/src/parsers/__tests__/fixtures/<name>/`:
+   - `valid.<ext>` (happy path)
+   - `malformed.<ext>` (missing required field or syntax error)
+   - `empty.<ext>`
+5. **Write tests** in `packages/backend/src/parsers/__tests__/<name>.parser.test.ts`. Real fs reads. No `vi.mock`.
+6. **Register in `parsers/index.ts`** with the file glob it handles.
+7. **Run `pnpm --filter @h-orchestra/backend test`** and confirm green.
+8. **Run `./init.sh`**.
 
-2. **Add the glob pattern** to `packages/shared/src/constants/file-patterns.ts`
-   - Add a new key to `HARNESS_PATTERNS`
+## Acceptance pattern
 
-3. **Create the parser** at `packages/backend/src/parsers/<name>.parser.ts`
-   - Export a pure function: `export function parse<Name>(filePath: string, content: string): MyType`
-   - Use `js-yaml` for YAML front-matter, `JSON.parse` for JSON, plain string processing for text files
-   - Wrap in try/catch — return a safe fallback rather than throwing
+Every parser feature should have these acceptance criteria:
 
-4. **Register the parser** in `packages/backend/src/parsers/index.ts`
-   - Add to `createDefaultRegistry()`:
-     ```typescript
-     registry.register({
-       glob: HARNESS_PATTERNS.myFile,
-       eventType: 'myfile:updated',
-       parse: parseMyFile,
-     });
-     ```
-   - If the file should be included in the initial snapshot, add a glob query to `buildHarnessSnapshot()`
+- Parser exports `parse<Name>(filePath): Promise<Result<<Name>, ParseError>>`
+- Tests run against real fixture files (no `vi.mock`)
+- Malformed input returns `Result.err`, never throws
+- Missing file returns `Result.err({ code: 'FILE_NOT_FOUND' })`
+- Registered in `parsers/index.ts`
 
-5. **Handle the event in the frontend store** (`packages/frontend/src/stores/harness.store.ts`)
-   - Add a field to `HarnessState`
-   - Add a `case 'myfile:updated':` branch in the `dispatch()` immer setter
+## Anti-patterns
 
-6. **Run typecheck**: `pnpm typecheck` — all three packages must pass before continuing
-
-7. **Manual smoke test**: Start the backend with `MOUNT_PATH=/tmp/test-harness pnpm --filter @h-orchestra/backend dev`, edit the watched file, confirm the SSE event appears in `curl -N http://localhost:3001/api/events`
+- `vi.mock('node:fs')` — forbidden. See `docs/verification.md`.
+- Throwing on malformed input — return `Result.err`.
+- Coupling to other parsers — each parser is independent; the aggregator composes them.
+- Caching inside the parser — caching belongs to the route layer.

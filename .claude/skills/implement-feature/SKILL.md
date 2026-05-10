@@ -1,64 +1,57 @@
 ---
 name: implement-feature
-description: Implement the next pending feature from feature_list.json in the H-Orchestra codebase
-trigger: implement the next feature
-version: 1.0.0
-author: H-Orchestra
-tags:
-  - workflow
-  - typescript
-  - tdd
+description: Drive one pending feature from feature_list.json to APPROVED. The leader's main loop. Read state, pick a feature, dispatch implementer, dispatch reviewer, mark done on APPROVED.
 ---
+
+# implement-feature
+
+This is the leader's primary skill. It drives one feature through the full lifecycle: pending → in_progress → impl → review → done.
+
+## When to use
+
+- A user has asked you to "implement the next feature" or "keep going on the backlog"
+- `init.sh` is green
+- There is at least one feature with `status: "pending"`
+- There is no feature currently `in_progress` (init.sh enforces this)
 
 ## Steps
 
-1. **Orient**: Read `claude-progress.txt` → Read `feature_list.json` → identify first `pending` task
+1. **Read state.** `feature_list.json`, `progress/current.md`, `tail -n 60 progress/history.md`.
 
-2. **Understand scope**: Determine which package(s) are involved
-   - `backend-*` tasks → `packages/backend/src/`
-   - `frontend-*` tasks → `packages/frontend/src/`
-   - `testing-*` tasks → add `.test.ts` files alongside the module being tested
-   - `infra-*` tasks → root-level config files
+2. **Pick a feature.** First `pending` in id order, unless the user named a specific id.
 
-3. **Read existing code** before writing any new code
-   - For backend tasks: read the relevant route/parser/plugin files
-   - For frontend tasks: read the relevant view, store, and hook files
-   - For parser tasks: follow the `add-backend-parser` skill
-   - For route tasks: follow the `add-backend-route` skill
-   - For view tasks: follow the `add-frontend-view` skill
+3. **Mark in_progress.** Edit `feature_list.json` to set the chosen feature's `status: "in_progress"`. Run `./init.sh` to confirm only one is in_progress.
 
-4. **Implement** — one file at a time, smallest change first
+4. **Update current.md.** Active feature, plan (3-5 bullets), `Subagent in flight: implementer`.
 
-5. **Verify**:
-   ```bash
-   pnpm typecheck          # must pass with zero errors
-   pnpm build              # must complete without errors
-   ```
-   For testing tasks: `pnpm --filter @h-orchestra/backend test`
+5. **Dispatch implementer.** Use the `Agent` tool with `subagent_type: "implementer"`. Hand them:
+   - feature id
+   - acceptance criteria (copy verbatim from feature_list.json)
+   - links to `docs/architecture.md`, `docs/conventions.md`, `docs/verification.md`
+   - the relevant secondary skill (e.g. `add-backend-parser` for parser features)
 
-6. **Update feature_list.json**: Set the task `status` to `completed`
+6. **Wait for one-line return.** Either:
+   - `IMPL READY: <id> see progress/impl_<id>.md` → step 7
+   - `BLOCKED: <id> see progress/current.md` → step 11
 
-7. **Append to claude-progress.txt**:
-   ```
-   [YYYY-MM-DD HH:MM:SS] [AGENT] Completed <task-id>: <one-line summary of what was done>
-   ```
+7. **Read the impl report from disk.** Confirm it exists and is complete.
 
-8. **Commit**:
-   ```bash
-   git add -p                          # stage only relevant files
-   git commit -m "feat: <task label>"
-   ```
+8. **Dispatch reviewer.** Same `Agent` tool, `subagent_type: "reviewer"`. Hand them:
+   - feature id
+   - link to `progress/impl_<id>.md`
+   - links to `CHECKPOINTS.md`, `docs/conventions.md`, `docs/verification.md`
 
-## Quick Reference — Key Files
+9. **Wait for one-line return.** Either:
+   - `APPROVED: <id>` → step 10
+   - `CHANGES_REQUESTED: <id>` → re-dispatch implementer with the review attached, return to step 6
 
-| What | Where |
-|---|---|
-| SSE event types | `packages/shared/src/types/events.ts` |
-| Harness snapshot builder | `packages/backend/src/parsers/index.ts` |
-| File watch patterns | `packages/shared/src/constants/file-patterns.ts` |
-| Zustand harness store | `packages/frontend/src/stores/harness.store.ts` |
-| Nothing Design tokens | `packages/frontend/src/styles/tokens.css` |
-| CSS component classes | `packages/frontend/src/styles/components.css` |
-| Frontend API client | `packages/frontend/src/api/client.ts` |
-| Route registration | `packages/backend/src/routes/index.ts` |
-| Fastify instance type | `packages/backend/src/server.ts` (module augmentation) |
+10. **Mark done.** Edit `feature_list.json` to `status: "done"`. Append a one-paragraph entry to `progress/history.md`. Reset `progress/current.md` to bootstrap template. Run `./init.sh`.
+
+11. **Blocked.** Set `status: "blocked"` in feature_list.json. Document in `progress/current.md` under `## Blocker`. Append a `BLOCKED: <id>` line to `progress/history.md`. Stop and surface to the user.
+
+## Anti-patterns
+
+- Do not dispatch implementer for two features in parallel.
+- Do not skip the reviewer step.
+- Do not edit `progress/impl_<id>.md` or `progress/review_<id>.md` yourself; those belong to the subagents.
+- Do not re-dispatch a subagent without first reading their prior report.

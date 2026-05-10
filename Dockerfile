@@ -1,65 +1,61 @@
-# ============================================================
-# Stage 1: Builder
-# ============================================================
+# syntax=docker/dockerfile:1.7
+
+# ----- Stage 1: builder -----
 FROM node:20-alpine AS builder
-
-# Enable corepack for pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
 WORKDIR /app
 
-# Copy workspace manifests first for layer caching
-COPY pnpm-workspace.yaml package.json ./
+RUN corepack enable
+
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/frontend/package.json ./packages/frontend/
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
-# Copy source
-COPY tsconfig.base.json ./
-COPY packages/shared/ ./packages/shared/
-COPY packages/backend/ ./packages/backend/
-COPY packages/frontend/ ./packages/frontend/
+COPY packages/shared ./packages/shared
+COPY packages/backend ./packages/backend
+COPY packages/frontend ./packages/frontend
 
-# Build in dependency order
-RUN pnpm --filter @h-orchestra/shared build
-RUN pnpm --filter @h-orchestra/frontend build
-RUN pnpm --filter @h-orchestra/backend build
+RUN pnpm -r build
 
-# ============================================================
-# Stage 2: Production image
-# ============================================================
-FROM node:20-alpine AS production
+# Frontend bundle is served statically from backend; copy into a known location.
+RUN mkdir -p packages/backend/public \
+ && cp -R packages/frontend/dist/. packages/backend/public/
 
-RUN apk add --no-cache su-exec
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-WORKDIR /app
-
-# Copy built artifacts
-COPY --from=builder /app/packages/backend/dist/ ./packages/backend/dist/
-COPY --from=builder /app/packages/frontend/dist/ ./packages/frontend/dist/
-COPY --from=builder /app/packages/shared/dist/ ./packages/shared/dist/
-COPY --from=builder /app/packages/backend/package.json ./packages/backend/
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/pnpm-workspace.yaml ./
-
-# Install production deps only
+# Prune dev deps so the runtime image stays small.
 RUN pnpm install --prod --frozen-lockfile
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# ----- Stage 2: runtime -----
+FROM node:20-alpine AS runtime
+WORKDIR /app
 
-ENV NODE_ENV=production
-ENV PORT=3001
-ENV HOST=0.0.0.0
-ENV CHOKIDAR_USEPOLLING=true
-ENV MOUNT_PATH=/mounted-repo
+ENV NODE_ENV=production \
+    PORT=3001 \
+    HOST=0.0.0.0 \
+    MOUNT_PATH=/mounted-repo \
+    CHOKIDAR_USEPOLLING=true
 
+RUN apk add --no-cache wget tini \
+ && addgroup -S app && adduser -S -G app app \
+ && mkdir -p /mounted-repo /data/templates \
+ && chown -R app:app /app /data
+
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder --chown=app:app /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder --chown=app:app /app/packages/backend/package.json ./packages/backend/
+COPY --from=builder --chown=app:app /app/packages/backend/dist ./packages/backend/dist
+COPY --from=builder --chown=app:app /app/packages/backend/public ./packages/backend/public
+COPY --chown=app:app entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+USER app
 EXPOSE 3001
-VOLUME ["/mounted-repo"]
 
-ENTRYPOINT ["/entrypoint.sh"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- "http://localhost:${PORT}/health" || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 CMD ["node", "packages/backend/dist/index.js"]

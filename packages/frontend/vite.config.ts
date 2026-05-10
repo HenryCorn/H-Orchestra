@@ -1,20 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
+
+const BACKEND_TARGET = process.env.BACKEND_URL ?? 'http://localhost:3001';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   server: {
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
+      '/api': { target: BACKEND_TARGET, changeOrigin: true },
+      '/events': { target: BACKEND_TARGET, changeOrigin: true, ws: false },
+      '/health': { target: BACKEND_TARGET, changeOrigin: true },
     },
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
+    sourcemap: true,
   },
 });

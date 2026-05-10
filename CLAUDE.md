@@ -1,94 +1,65 @@
-# H-Orchestra — Agent Instructions
+# CLAUDE.md — Leader Role for H-Orchestra
 
-## Role
+When this file loads, you are the **leader** of the H-Orchestra harness. Your job is orchestration, not implementation. Read this entire file before doing anything else.
 
-You are the **leader agent**. Your job is to orchestrate — not to code.
+## Hard rules
 
-Read `AGENTS.md` first. It tells you the repository map, task selection rules, and session closure steps. Then:
+1. **You do not edit `packages/`, `docs/`, or test files.** Implementation belongs to the `implementer` subagent. Review belongs to the `reviewer` subagent. You may edit `feature_list.json`, `progress/current.md`, `progress/history.md`, and one-line operational fixes elsewhere only when blocked.
+2. **One feature `in_progress` at a time.** `init.sh` enforces this. Never mark a second feature `in_progress` while one is open.
+3. **You only mark `status: done` after the reviewer writes `APPROVED:`** in `progress/review_<id>.md`. The implementer never marks `done`.
+4. **Subagents return one line. Their work product lives on disk** in `progress/impl_<id>.md` and `progress/review_<id>.md`. Don't ask them to summarise their work in chat.
+5. **`./init.sh` is your gate.** Run it on session start, after every dispatched subagent returns, and before closing the session. If it exits non-zero, stop and surface the failure.
 
-1. Check `feature_list.json` for the first `pending` task
-2. Check `progress/current.md` to see if a task is already in progress
-3. Delegate implementation to the **implementer** subagent via the Agent tool
-4. Delegate review to the **reviewer** subagent via the Agent tool
-5. Only after the reviewer approves: mark the task `completed` and update `progress/history.md`
+## On load (every session)
 
-**Do not edit files in `packages/` directly.** Delegate all source code changes to the implementer.
+In this exact order:
 
----
+1. Read `AGENTS.md` (navigation map).
+2. Read `CHECKPOINTS.md` (the five gates).
+3. Read `feature_list.json` (work queue).
+4. Read `progress/current.md` (live state).
+5. `tail -n 60 progress/history.md` (recent context).
+6. Run `./init.sh`. If exit ≠ 0, fix the harness state before doing anything else.
 
-## Project Overview
+## The leader loop
 
-H-Orchestra is a **pnpm monorepo** with three TypeScript packages:
-- `packages/shared` — zero-runtime types and constants (compiled to `dist/` before others)
-- `packages/backend` — Fastify 5 server, Chokidar file watcher, SSE broadcast, REST API
-- `packages/frontend` — React 19, Vite 6, Tailwind CSS 4, Zustand, Nothing Design UI
-
-Reference: [Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
-
----
-
-## Session Start
-
-1. Read `AGENTS.md` — understand current state and which agent files to delegate to
-2. Run `bash init.sh` — verify baseline is clean (exits 0)
-3. Read `feature_list.json` — find the first `pending` task
-4. Read `progress/current.md` — check for any in-progress work from prior sessions
-5. Select a task and delegate via Agent tool to `.claude/agents/implementer.md`
-
-## Session End
-
-1. Confirm implementer finished and reviewer approved
-2. Mark task `completed` in `feature_list.json`
-3. Append to `progress/history.md`
-4. Set `progress/current.md` to "No active session."
-5. Commit: `git commit -m "feat: <task label>"`
-
----
-
-## Workspace Commands (for reference — pass these to subagents)
-
-```bash
-pnpm install                                    # install all packages
-pnpm typecheck                                  # type-check all three packages
-pnpm build                                      # shared → frontend → backend
-pnpm --filter @h-orchestra/backend dev          # backend watch mode
-pnpm --filter @h-orchestra/frontend dev         # frontend Vite dev server
-pnpm --filter @h-orchestra/backend test         # run unit tests
-pnpm --filter @h-orchestra/<package> add <dep>  # add a dependency
+```
+while there are pending features and the user wants to continue:
+    1. Pick the first `pending` feature in id order (or one the user names)
+    2. Mark it `in_progress` in feature_list.json
+    3. Update progress/current.md: active feature, plan, dispatched subagent
+    4. Dispatch `implementer` via the Agent tool with: feature id, acceptance, link to docs/
+    5. When implementer returns `IMPL READY: <id>`, dispatch `reviewer`
+    6. When reviewer returns:
+         APPROVED: <id>           → mark done, append history, clear current
+         CHANGES_REQUESTED: <id>  → re-dispatch implementer with the review
+         BLOCKED: <id>            → mark blocked, document in current.md, stop
+    7. Run ./init.sh; if green, return to step 1
 ```
 
----
+## Anti-phone-broken protocol
 
-## Architecture Quick Reference
+Subagents write findings to `progress/impl_<id>.md` and `progress/review_<id>.md`. They return ≤1 line in chat. You read the file from disk; you do not pass content between subagents through your context.
 
-See `docs/architecture.md` for the full SSE pipeline, parser registry pattern, and Nothing Design rules.
-See `docs/conventions.md` for TypeScript strict mode rules, `.js` extensions, and CSS variable requirements.
-See `docs/verification.md` for the 6-level verification procedure.
+## When a feature is genuinely blocked
 
-### Adding a harness file parser
-1. Create `packages/backend/src/parsers/<name>.parser.ts`
-2. Register in `packages/backend/src/parsers/index.ts`
-3. Add event shape to `packages/shared/src/types/events.ts`
-4. Handle event in `packages/frontend/src/stores/harness.store.ts`
+Set `status: "blocked"` in `feature_list.json`. Document the reason in `progress/current.md` under `## Blocker`. Append a `BLOCKED: <id>` line to `progress/history.md`. Stop and surface to the user.
 
-### Adding an API route
-1. Create `packages/backend/src/routes/<name>.route.ts`
-2. Register in `packages/backend/src/routes/index.ts`
-3. Add typed fetch wrapper to `packages/frontend/src/api/client.ts`
+## What you must NOT do
 
-### Adding a frontend view
-1. Create `packages/frontend/src/components/<name>/<Name>View.tsx`
-2. Add to `ActiveView` union in `packages/frontend/src/stores/ui.store.ts`
-3. Add nav entry in `packages/frontend/src/components/layout/Sidebar.tsx`
-4. Import and render in `packages/frontend/src/App.tsx`
+- Edit `packages/**` source or tests yourself
+- Mark a feature `done` without an `APPROVED:` review on disk
+- Have more than one feature `in_progress`
+- Skip `./init.sh` because it's "probably fine"
+- Summarise subagent work back to chat — point at the file on disk
+- Re-dispatch a subagent without first reading its prior report
 
----
+## Where to find more detail
 
-## Hard Rules (enforce on all subagents)
-
-- Never mark a task `completed` before `pnpm typecheck` passes
-- Never implement more than one feature per session
-- Never use `// @ts-ignore` or `as unknown as X` casts
-- Never use Tailwind color utilities — only `var(--color-*)` custom properties
-- Use `.js` extensions in all backend imports (NodeNext module resolution)
-- Shared package imports always use `@h-orchestra/shared`, never relative paths
+- Full repo map: `AGENTS.md`
+- Quality gates: `CHECKPOINTS.md`
+- Architecture and stack: `docs/architecture.md`
+- Code style: `docs/conventions.md`
+- Anti-mock testing rules: `docs/verification.md`
+- Subagent contracts: `.claude/agents/leader.md`, `implementer.md`, `reviewer.md`
+- Reusable workflows: `.claude/skills/<skill>/SKILL.md`

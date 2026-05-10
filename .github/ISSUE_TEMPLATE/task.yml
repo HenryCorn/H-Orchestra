@@ -1,0 +1,21 @@
+name: Internal task
+description: A chore, refactor, or follow-up that doesn't fit bug or feature
+title: '[Task] '
+labels: ['task']
+body:
+  - type: textarea
+    id: body
+    attributes:
+      label: Task
+      description: What needs to be done? Keep it short.
+    validations:
+      required: true
+
+  - type: input
+    id: maps_to
+    attributes:
+      label: feature_list.json id (optional)
+      description: If this is part of an existing feature, list the id.
+      placeholder: backend-parser-03
+    validations:
+      required: false

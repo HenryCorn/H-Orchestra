@@ -1,32 +1,19 @@
 services:
-  backend:
+  h-orchestra:
     build:
       context: .
       target: builder
-    command: pnpm --filter @h-orchestra/backend dev
-    ports:
-      - "3001:3001"
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - "${REPO_PATH:-.}:/mounted-repo"
+    command: pnpm -r --parallel dev
     environment:
-      NODE_ENV: development
       MOUNT_PATH: /mounted-repo
-      CHOKIDAR_USEPOLLING: "false"
-      PORT: "3001"
-
-  frontend:
-    build:
-      context: .
-      target: builder
-    command: pnpm --filter @h-orchestra/frontend dev --host
-    ports:
-      - "5173:5173"
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: 'true'
+      LOG_LEVEL: debug
     volumes:
-      - .:/app
-      - /app/node_modules
-    environment:
-      VITE_API_BASE: "http://localhost:3001"
-    depends_on:
-      - backend
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/backend/src:/app/packages/backend/src
+      - ./packages/frontend/src:/app/packages/frontend/src
+      - ./packages/frontend/index.html:/app/packages/frontend/index.html
+    ports:
+      - '3001:3001'
+      - '5173:5173'

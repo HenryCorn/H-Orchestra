@@ -1,0 +1,62 @@
+name: Feature request
+description: Propose a new feature for H-Orchestra
+title: '[Feature] '
+labels: ['enhancement', 'triage']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user need does this address? Why is the current behaviour insufficient?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like H-Orchestra to behave?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria draft
+      description: |
+        3-5 objective, testable criteria. These become the `acceptance` array
+        in feature_list.json if accepted.
+      placeholder: |
+        - The view shows a histogram of feature completion velocity by week
+        - Empty data state shows '[NO HISTORY]' inline
+        - Hovering a bar shows the underlying feature ids
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: What should this feature explicitly NOT do?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - infrastructure
+        - shared-types
+        - backend-parser
+        - backend-route
+        - backend-watcher
+        - tracing
+        - frontend-design-system
+        - frontend-view
+        - templates
+        - docker
+        - e2e
+        - other
+    validations:
+      required: true

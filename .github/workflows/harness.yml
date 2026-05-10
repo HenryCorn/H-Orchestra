@@ -1,0 +1,64 @@
+name: Harness
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: harness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: init.sh + feature_list invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read .nvmrc
+        id: nvm
+        run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.nvm.outputs.version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run init.sh (skip tests; ci.yml runs tests)
+        env:
+          SKIP_TESTS: '1'
+        run: ./init.sh
+
+      - name: Validate feature_list invariants
+        run: |
+          node <<'EOF'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const data = JSON.parse(fs.readFileSync('feature_list.json', 'utf8'));
+          const valid = new Set(['pending', 'in_progress', 'done', 'blocked']);
+          const ids = new Set();
+          let inProgress = 0;
+          for (const f of data.features) {
+            if (!f.id) throw new Error('feature missing id');
+            if (ids.has(f.id)) throw new Error('duplicate id: ' + f.id);
+            ids.add(f.id);
+            if (!valid.has(f.status)) throw new Error('bad status on ' + f.id + ': ' + f.status);
+            if (f.status === 'in_progress') inProgress++;
+          }
+          if (inProgress > 1) throw new Error('multiple in_progress features');
+          for (const file of fs.readdirSync('progress')) {
+            const m = file.match(/^(impl|review)_(.+)\.md$/);
+            if (m && !ids.has(m[2])) throw new Error('orphan report: progress/' + file);
+          }
+          console.log(`OK: ${data.features.length} features, in_progress=${inProgress}`);
+          EOF

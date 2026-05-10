@@ -1,56 +1,137 @@
-# H-Orchestra — Agent Navigation Map
+# AGENTS.md — Navigation Map for H-Orchestra
 
-## Before Starting Any Session
+This is the map. CLAUDE.md tells you what role you have. AGENTS.md tells you where everything lives so you can pull rules on demand.
 
-1. Run `bash init.sh` — it must exit 0
-2. Read `progress/current.md` — understand what was in progress last session
-3. Read `feature_list.json` — identify the first `pending` task (lowest id)
-4. Execute **one task only** per session
+## 1. Repo overview
 
-## Repository Map
+```
+H-Orchestra/
+  CLAUDE.md              ← role definition (leader-only on auto-load)
+  AGENTS.md              ← this file (navigation + protocols)
+  CHECKPOINTS.md         ← five quality gates (C1–C5)
+  feature_list.json      ← single source of truth for backlog
+  init.sh                ← gatekeeper script (must exit 0)
+  progress/
+    current.md           ← live session state, OVERWRITTEN each session
+    history.md           ← append-only chronological log
+    impl_<id>.md         ← implementer report per feature
+    review_<id>.md       ← reviewer verdict per feature
+  docs/
+    architecture.md      ← what we're building and how layers fit
+    conventions.md       ← code style, naming, file rules
+    verification.md      ← anti-mock testing policy
+  .claude/
+    agents/{leader,implementer,reviewer}.md   ← subagent contracts
+    skills/<skill>/SKILL.md                    ← reusable workflows
+    settings.json                              ← PostToolUse + Stop hooks
+  packages/
+    shared/              ← TS types and constants only
+    backend/             ← Fastify + Chokidar + SSE
+    frontend/            ← React 19 + Vite 6 + Zustand
+  Dockerfile, docker-compose*.yml, entrypoint.sh
+  .github/workflows/{ci,harness,docker,release}.yml
+```
 
-| File / Dir | Read when |
-|---|---|
-| `AGENTS.md` | Start of every session (this file) |
-| `CLAUDE.md` | First session, or if unsure about your role |
-| `.claude/agents/leader.md` | You are orchestrating the session |
-| `.claude/agents/implementer.md` | You are writing code |
-| `.claude/agents/reviewer.md` | You are reviewing code |
-| `feature_list.json` | Selecting a task, updating status |
-| `progress/current.md` | Resuming work, checking session state |
-| `progress/history.md` | Understanding past decisions |
-| `CHECKPOINTS.md` | Verifying a feature before marking done |
-| `docs/architecture.md` | Designing or reviewing changes |
-| `docs/conventions.md` | Writing TypeScript code |
-| `docs/verification.md` | Verifying a completed feature |
+## 2. Where state lives
 
-## Task Selection Protocol
+| What                | Where                     | Mutated by                             |
+| ------------------- | ------------------------- | -------------------------------------- |
+| Feature backlog     | `feature_list.json`       | leader (status changes)                |
+| Live session        | `progress/current.md`     | leader                                 |
+| Session log         | `progress/history.md`     | leader (append)                        |
+| Implementer reports | `progress/impl_<id>.md`   | implementer (one per feature)          |
+| Reviewer verdicts   | `progress/review_<id>.md` | reviewer (one per review pass)         |
+| Code, tests, types  | `packages/<pkg>/src`      | implementer                            |
+| Standards           | `docs/*.md`               | leader (rare; treat as constitutional) |
 
-1. Open `feature_list.json`
-2. Filter to `status: "pending"`
-3. Select the item with the lowest priority number
-4. Set its status to `"in_progress"`
-5. Document your plan in `progress/current.md`
+## 3. Naming conventions
 
-## Hard Rules
+- Feature IDs: kebab-case grouped by area, e.g. `infra-01`, `backend-parser-03`, `frontend-view-05`.
+- Files: kebab-case (`feature-list.parser.ts`); React components PascalCase (`TasksView.tsx`).
+- Tests: `<unit>.test.ts` colocated under `__tests__/`.
+- Branches: `feature/<id>-<short-slug>`, e.g. `feature/backend-parser-01-feature-list`.
+- Commits: imperative, scope by id, e.g. `feat(backend-parser-01): feature_list.json parser with Result<T,E> return`.
+- Reports: `progress/impl_<id>.md` and `progress/review_<id>.md`. If a feature needs a second pass, append `_v2`, `_v3` to the review file (never overwrite a verdict).
 
-- **One feature per session** — no exceptions
-- **Never mark a task `completed`** without `pnpm typecheck` and `pnpm build` passing
-- **Never mark a task `completed`** without `bash init.sh` exiting 0
-- **Never use `// @ts-ignore`** or `as unknown as X` casts
-- **Never use Tailwind color utilities** — always `var(--color-*)` CSS custom properties
-- **Leave `progress/current.md` clean** at session end — move completed work to `progress/history.md`
+## 4. How to find a feature to work on
 
-## Session Closure
+1. Read `feature_list.json`.
+2. Filter by `status: "pending"`.
+3. Sort by id (the order encodes intended sequence).
+4. Pick the first; do not skip ahead unless the user names a different one.
+5. If that feature has cross-package implications, read the matching skill file in `.claude/skills/`.
 
-1. Run `bash init.sh` — must exit 0
-2. If task complete: set status to `"completed"` in `feature_list.json`
-3. Move session notes from `progress/current.md` → append to `progress/history.md`
-4. Empty `progress/current.md`
-5. Commit: `git commit -m "feat: <task label>"`
+## 5. How to write an implementer report
 
-## If Blocked
+`progress/impl_<id>.md`:
 
-- Set task status to `"blocked"` in `feature_list.json`
-- Document the blocker in `progress/current.md`
-- End the session cleanly
+```
+# Impl <id> — <title>
+
+## What I built
+<2-4 sentences>
+
+## Files touched
+- packages/<pkg>/src/<path> — created | modified
+- packages/<pkg>/src/__tests__/<path>.test.ts — created
+
+## How I verified
+- pnpm typecheck — green
+- pnpm test — N tests, 0 failures
+- ./init.sh — exit 0 (with logs at /tmp/harness_init.log)
+- <any manual / curl / docker step>
+
+## Open questions
+<things the reviewer should look at, or flag "none">
+```
+
+Then return one line: `IMPL READY: <id> see progress/impl_<id>.md`.
+
+## 6. How to write a reviewer verdict
+
+`progress/review_<id>.md`:
+
+```
+# Review <id> — <title>
+
+## Verdict
+APPROVED  |  CHANGES_REQUESTED
+
+## Acceptance criteria
+- [x] <criterion 1>
+- [ ] <criterion 2 — failing because …>
+
+## Conventions check
+<follows docs/conventions.md? cite line if not>
+
+## Verification check
+<C4: real tests, no mocks, init.sh green?>
+
+## Required changes
+<concrete diffs or "none">
+```
+
+Then return one line: `APPROVED: <id>` or `CHANGES_REQUESTED: <id>`.
+
+## 7. Anti-phone-broken protocol
+
+- Subagents write to disk; they do not summarise their work back through chat.
+- The leader reads files from disk between subagent dispatches.
+- Code, diffs, and large outputs never travel through the leader's context.
+- One-line returns only.
+
+## 8. Escalation table
+
+| Symptom                                           | Action                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------ |
+| `init.sh` fails on `feature_list.json` parse      | Stop. Fix JSON. Surface to user.                             |
+| Implementer returns `BLOCKED:`                    | Mark feature `blocked`, document in `current.md`, stop.      |
+| Reviewer returns `CHANGES_REQUESTED:`             | Re-dispatch implementer; do not mark done.                   |
+| Two features `in_progress` after a hand edit      | Stop. Resolve to one. Re-run `init.sh`.                      |
+| Reviewer asks for a code edit you'd normally make | Don't. Re-dispatch the implementer with the review attached. |
+
+## 9. When in doubt
+
+- Want to know the _what_: `docs/architecture.md`.
+- Want to know the _how_: `docs/conventions.md` + relevant `SKILL.md`.
+- Want to know the _bar_: `docs/verification.md` + `CHECKPOINTS.md`.

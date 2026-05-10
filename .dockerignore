@@ -1,8 +1,43 @@
-node_modules/
-.git/
+# VCS
+.git
+.gitignore
+.github
+
+# Local dev
+node_modules
+**/node_modules
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
+.vite
+coverage
+
+# Editor
+.idea
+.vscode
 .DS_Store
-*.log
-packages/*/dist/
-docker-compose*.yml
+
+# Env
 .env
-.env.local
+.env.*
+
+# Harness runtime (image gets a fresh harness via mount)
+progress
+CHECKPOINTS.md
+feature_list.json
+init.sh
+
+# Docs (image keeps README only)
+docs
+CONTRIBUTING.md
+SECURITY.md
+CODEOWNERS
+AGENTS.md
+CLAUDE.md
+.claude
+
+# Tests
+**/__tests__
+**/*.test.ts
+**/*.test.tsx

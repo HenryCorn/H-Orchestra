@@ -1,20 +1,37 @@
 {
   "name": "h-orchestra",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
+  "description": "Web tool for visualizing and managing Claude Code sub-agent harnesses",
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.0",
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "node": ">=20.11"
   },
   "scripts": {
-    "dev": "pnpm --parallel -r dev",
-    "build": "pnpm --filter @h-orchestra/shared build && pnpm --filter @h-orchestra/frontend build && pnpm --filter @h-orchestra/backend build",
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "clean": "pnpm -r clean"
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "prepare": "simple-git-hooks"
   },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "simple-git-hooks": "^2.11.1",
+    "typescript": "^5.6.3"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm lint-staged"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write"
+    ],
+    "*.{md,json,yml,yaml,css,html}": [
+      "prettier --write"
+    ]
   }
 }

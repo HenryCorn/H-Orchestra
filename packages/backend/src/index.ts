@@ -1,18 +1,20 @@
-import { parseConfig } from './config.js';
-import { createServer } from './server.js';
+import Fastify from 'fastify';
+import { VERSION } from '@h-orchestra/shared';
 
-async function main() {
-  const config = parseConfig();
-  const server = await createServer(config);
+const PORT = Number(process.env.PORT ?? 3001);
+const HOST = process.env.HOST ?? '0.0.0.0';
 
-  try {
-    await server.listen({ port: config.PORT, host: config.HOST });
-    console.log(`H-Orchestra backend listening on ${config.HOST}:${config.PORT}`);
-    console.log(`Watching mounted path: ${config.MOUNT_PATH}`);
-  } catch (err) {
-    server.log.error(err);
+const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } });
+
+app.get('/health', async () => ({ ok: true }));
+app.get('/api/version', async () => ({ version: VERSION }));
+
+app
+  .listen({ port: PORT, host: HOST })
+  .then(() => {
+    app.log.info(`H-Orchestra backend listening on http://${HOST}:${PORT}`);
+  })
+  .catch((err) => {
+    app.log.error(err);
     process.exit(1);
-  }
-}
-
-main();
+  });

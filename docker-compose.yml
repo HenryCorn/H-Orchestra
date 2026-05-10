@@ -1,22 +1,28 @@
 services:
   h-orchestra:
-    build:
-      context: .
-      target: production
+    build: .
     image: h-orchestra:latest
+    container_name: h-orchestra
     ports:
-      - "3001:3001"
-    volumes:
-      - "${REPO_PATH:-.}:/mounted-repo"
+      - '3001:3001'
     environment:
       MOUNT_PATH: /mounted-repo
-      CHOKIDAR_USEPOLLING: "true"
-      # Linux host: pass your UID/GID to avoid file permission issues
-      # HOST_UID: "${HOST_UID:-}"
-      # HOST_GID: "${HOST_GID:-}"
-      # Tracing — leave empty to disable
-      LANGFUSE_SECRET_KEY: "${LANGFUSE_SECRET_KEY:-}"
-      LANGFUSE_PUBLIC_KEY: "${LANGFUSE_PUBLIC_KEY:-}"
-      LANGFUSE_BASE_URL: "${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}"
-      HELICONE_API_KEY: "${HELICONE_API_KEY:-}"
+      NODE_ENV: production
+      CHOKIDAR_USEPOLLING: 'true'
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      HELICONE_API_KEY: ${HELICONE_API_KEY:-}
+    volumes:
+      - ${REPO_PATH:?REPO_PATH must be set to the absolute path of a harness repo}:/mounted-repo:ro
+      - h-orchestra-templates:/data/templates
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  h-orchestra-templates:

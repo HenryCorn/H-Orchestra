@@ -1,0 +1,13 @@
+# H-Orchestra code owners
+# Default reviewer for every path.
+
+* @HenryCorn
+
+# Harness-critical files require explicit attention.
+/CLAUDE.md         @HenryCorn
+/AGENTS.md         @HenryCorn
+/CHECKPOINTS.md    @HenryCorn
+/feature_list.json @HenryCorn
+/init.sh           @HenryCorn
+/.claude/          @HenryCorn
+/.github/          @HenryCorn

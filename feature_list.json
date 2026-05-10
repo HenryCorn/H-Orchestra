@@ -1,332 +1,641 @@
 {
-  "tasks": [
+  "project": "H-Orchestra",
+  "description": "Web tool for visualizing and managing Claude Code sub-agent harnesses (AGENTS.md / feature_list.json / .claude/agents). Self-hosted, Docker-deployable, Nothing Design UI.",
+  "rules": [
+    "Only one feature in_progress at a time",
+    "Implementer writes code+tests and never marks done",
+    "Reviewer is read-only and writes progress/review_<id>.md",
+    "Real verification: no mocked file system, no mocked Fastify, no snapshot-only tests",
+    "All UI uses tokens.css variables; Tailwind only for layout utilities",
+    "TypeScript strict; NodeNext module resolution; .js suffix on all relative imports",
+    "Cross-package imports go through @h-orchestra/shared"
+  ],
+  "features": [
     {
-      "id": "infra-001",
-      "label": "pnpm monorepo scaffolding (workspace.yaml, tsconfig.base, package.json)",
-      "status": "completed",
-      "priority": 1,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "infra-01",
+      "name": "shared-types-baseline",
+      "title": "Shared types package baseline",
+      "description": "Establish @h-orchestra/shared with the core type definitions used across backend and frontend: HarnessState, Feature, AgentDefinition, SkillDefinition, ProgressEntry, SSEEvent discriminated union.",
+      "acceptance": [
+        "packages/shared/src/types/{harness,feature,agent,skill,progress,events}.ts exist with exported types",
+        "packages/shared/src/index.ts re-exports all types",
+        "pnpm --filter @h-orchestra/shared build succeeds and emits .d.ts",
+        "Types are importable from backend and frontend via @h-orchestra/shared",
+        "At least one test file exercises the type shapes via runtime assertions"
+      ],
+      "status": "pending"
     },
     {
-      "id": "infra-002",
-      "label": "Shared type definitions (SSEEvent union, HarnessSnapshot, FeatureTask, tracing, template types)",
-      "status": "completed",
-      "priority": 2,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "infra-02",
+      "name": "sse-event-contract",
+      "title": "SSE event contract and constants",
+      "description": "Define the SSE event names and payload shapes shared by backend emitter and frontend consumer.",
+      "acceptance": [
+        "packages/shared/src/constants/sse-events.ts exports event name constants",
+        "packages/shared/src/types/events.ts defines a discriminated union keyed on event name",
+        "Constants and types are paired (no event name without a payload type)",
+        "Unit test asserts every event name has a matching payload type"
+      ],
+      "status": "pending"
     },
     {
-      "id": "backend-001",
-      "label": "Fastify server factory with CORS, SSE client registry, /health endpoint",
-      "status": "completed",
-      "priority": 3,
-      "category": "backend",
-      "metadata": {}
+      "id": "infra-03",
+      "name": "path-utilities",
+      "title": "Cross-platform path utilities",
+      "description": "Normalize MOUNT_PATH across macOS, Linux, Windows host (via WSL2). Drop trailing slashes, swap backslashes, resolve symlinks consistently.",
+      "acceptance": [
+        "packages/shared/src/util/paths.ts exports normalizeMountPath(path) and resolveHarnessFile(root, relative)",
+        "Tests cover macOS, POSIX, and Windows-style inputs against real strings",
+        "Functions are pure and have no fs side effects"
+      ],
+      "status": "pending"
     },
     {
-      "id": "backend-002",
-      "label": "ChokidarWatcher with debounce, platform detection, EMFILE error handling",
-      "status": "completed",
-      "priority": 4,
-      "category": "backend",
-      "metadata": {}
+      "id": "infra-04",
+      "name": "result-and-error-taxonomy",
+      "title": "Result type, error taxonomy, ESLint config",
+      "description": "Generic Result<T,E> type for parser/route returns; structured ParserError and RouteError enums; ESLint flat config wired into pnpm lint.",
+      "acceptance": [
+        "packages/shared/src/util/result.ts exports Result, Ok, Err, isOk, isErr",
+        "packages/shared/src/errors.ts exports ParserErrorCode and RouteErrorCode enums plus a discriminated AppError type",
+        "Root-level eslint.config.js defines flat config; pnpm lint runs across all packages",
+        "ESLint forbids no-unused-vars (with _-prefixed exception), no-explicit-any without justification"
+      ],
+      "status": "pending"
     },
     {
-      "id": "backend-003",
-      "label": "Parser registry + all parsers (feature-list, skill, progress, agents-md, mermaid builder)",
-      "status": "completed",
-      "priority": 5,
-      "category": "backend",
-      "metadata": {}
+      "id": "backend-parser-01",
+      "name": "feature-list-parser",
+      "title": "feature_list.json parser",
+      "description": "Parse feature_list.json from the mounted repo into the FeatureList type. Validate schema, surface parse errors as a discriminated union result.",
+      "acceptance": [
+        "packages/backend/src/parsers/feature-list.parser.ts exports parseFeatureList(filePath): Promise<Result<FeatureList, ParseError>>",
+        "Rejects unknown status values and missing required fields with structured errors",
+        "Tests run against real fixture files in __tests__/fixtures/, not mocked fs",
+        "Returns structured error with line context where the JSON parser supports it"
+      ],
+      "status": "pending"
     },
     {
-      "id": "backend-004",
-      "label": "All REST routes (harness, tasks CRUD, skills, tracing, templates, scaffold)",
-      "status": "completed",
-      "priority": 6,
-      "category": "backend",
-      "metadata": {}
+      "id": "backend-parser-02",
+      "name": "agents-md-parser",
+      "title": "AGENTS.md and CLAUDE.md parser",
+      "description": "Parse markdown harness docs, extract section tree (H1/H2/H3) and inline links to other harness files.",
+      "acceptance": [
+        "Parser returns a Section[] tree with title, level, body, anchor",
+        "Internal links resolve to relative paths",
+        "Missing file returns Result.err, never throws",
+        "Tested against fixture markdown including this repo's own AGENTS.md"
+      ],
+      "status": "pending"
     },
     {
-      "id": "backend-005",
-      "label": "Langfuse + Helicone tracing adapters",
-      "status": "completed",
-      "priority": 7,
-      "category": "backend",
-      "metadata": {}
+      "id": "backend-parser-03",
+      "name": "agent-definition-parser",
+      "title": ".claude/agents/*.md parser",
+      "description": "Parse agent definition markdown files: YAML frontmatter (name, description, tools) plus body. Used to render the Agents view.",
+      "acceptance": [
+        "Parser uses gray-matter; returns AgentDefinition with frontmatter fields typed",
+        "Tools field is normalized to string[] regardless of YAML form",
+        "Invalid frontmatter returns Result.err with field-level message",
+        "Tests cover all three reference agents: leader, implementer, reviewer"
+      ],
+      "status": "pending"
     },
     {
-      "id": "backend-006",
-      "label": "Template engine ({{PLACEHOLDER}} substitution), built-in Python + .NET templates",
-      "status": "completed",
-      "priority": 8,
-      "category": "backend",
-      "metadata": {}
+      "id": "backend-parser-04",
+      "name": "skill-parser",
+      "title": ".claude/skills/<name>/SKILL.md parser",
+      "description": "Parse skill definitions with frontmatter (name, description) and body checklist.",
+      "acceptance": [
+        "Parser returns SkillDefinition with name, description, body",
+        "Tests cover all four bootstrap skills",
+        "Missing or malformed file returns Result.err"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-001",
-      "label": "Vite + React 19 + Tailwind CSS 4 + Nothing Design token system",
-      "status": "completed",
-      "priority": 9,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-parser-05",
+      "name": "progress-current-parser",
+      "title": "progress/current.md parser",
+      "description": "Parse the live session state: active feature, last action, next action, in-flight subagent.",
+      "acceptance": [
+        "Parser extracts each field defined in the current.md template",
+        "Handles partially-filled files gracefully",
+        "Returns Result<ProgressCurrent, ParseError>"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-002",
-      "label": "useSSE hook with exponential backoff, Zustand harness + UI stores, typed API client",
-      "status": "completed",
-      "priority": 10,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-parser-06",
+      "name": "progress-history-parser",
+      "title": "progress/history.md parser",
+      "description": "Parse the append-only session log into chronological entries with timestamp, feature id, and summary.",
+      "acceptance": [
+        "Returns ProgressEntry[] sorted descending by timestamp",
+        "Handles missing dates and non-standard headings",
+        "Tested against this repo's own history.md fixture"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-003",
-      "label": "Layout components (AppShell, Sidebar, TopBar, ConnectionBanner)",
-      "status": "completed",
-      "priority": 11,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-parser-07",
+      "name": "impl-review-report-parser",
+      "title": "progress/impl_*.md and review_*.md parser",
+      "description": "Discover and parse implementer + reviewer reports keyed by feature id.",
+      "acceptance": [
+        "Parser globs progress/impl_*.md and review_*.md",
+        "Returns map of featureId -> { impl?, review? }",
+        "Reviewer verdict (APPROVED | CHANGES_REQUESTED) is extracted from the markdown structure"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-004",
-      "label": "Primitive components (PillButton, Card, Badge, SegmentedProgress, MechanicalToggle, MetricDisplay, DotMatrix)",
-      "status": "completed",
-      "priority": 12,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-parser-08",
+      "name": "mermaid-sequence-builder",
+      "title": "Mermaid sub-agent interaction diagram builder",
+      "description": "Build a Mermaid sequenceDiagram from progress/history.md entries and impl/review reports describing leader → implementer / reviewer dispatches.",
+      "acceptance": [
+        "Builder takes ProgressEntry[] and report map, returns a valid Mermaid string",
+        "Output is validated by parsing it through Mermaid's parser, not by string equality",
+        "Edge cases covered: empty history, single dispatch, repeated review cycles"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-005",
-      "label": "Dashboard view (HarnessStatusCard, TaskSummaryCard, AgentActivityFeed)",
-      "status": "completed",
-      "priority": 13,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-parser-09",
+      "name": "harness-aggregator",
+      "title": "Harness aggregator (composes all parsers)",
+      "description": "Compose every parser into a single HarnessState snapshot. Collects per-file errors without throwing.",
+      "acceptance": [
+        "buildHarnessSnapshot(rootPath) returns HarnessState with parsed sections plus a parseErrors[] list",
+        "Aggregator never throws on malformed input",
+        "Integration test against this repo's own harness produces a non-empty snapshot"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-006",
-      "label": "Tasks view with status cycling, add/delete, filter by status",
-      "status": "completed",
-      "priority": 14,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-01",
+      "name": "health-and-version",
+      "title": "Health and version routes",
+      "description": "GET /health returns {ok:true}; GET /api/version returns the package version.",
+      "acceptance": [
+        "Both routes registered and tested against a real Fastify instance",
+        "Version is read from packages/shared exports",
+        "200 status, correct content-type"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-007",
-      "label": "Diagram view (MermaidRenderer with dark theme + Space Mono font override)",
-      "status": "completed",
-      "priority": 15,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-02",
+      "name": "harness-snapshot-route",
+      "title": "Harness snapshot route",
+      "description": "GET /api/harness returns the current HarnessState built by the aggregator.",
+      "acceptance": [
+        "Route returns full HarnessState plus parseErrors",
+        "Cached for 1s to coalesce parallel requests; cache invalidated on watcher event",
+        "Test against a tmp dir with a real harness fixture"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-008",
-      "label": "Skills view (SkillCard + SkillDetail with YAML frontmatter parsing)",
-      "status": "completed",
-      "priority": 16,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-03",
+      "name": "features-crud",
+      "title": "Features CRUD routes",
+      "description": "GET/POST/PATCH/DELETE /api/features with optimistic concurrency on feature_list.json.",
+      "acceptance": [
+        "POST creates a new feature with auto-generated id",
+        "PATCH updates fields (status, title, acceptance) atomically",
+        "DELETE removes a feature; 409 if it is in_progress",
+        "Concurrent writes preserved via etag/version field",
+        "Tests use a real tmp feature_list.json"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-009",
-      "label": "Tracing view (ProviderSelector, TraceList, SpanTree for Langfuse + Helicone)",
-      "status": "completed",
-      "priority": 17,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-04",
+      "name": "features-reorder",
+      "title": "Reorder features route",
+      "description": "PATCH /api/features/reorder accepts an ordered id list and rewrites feature_list.json preserving JSON formatting.",
+      "acceptance": [
+        "Reorder produces stable diff (no whitespace drift)",
+        "Tests assert formatting preservation on a real fixture",
+        "Returns 400 if posted ids don't match existing set"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-010",
-      "label": "Scaffold view (TemplateCard, VariableForm, built-in Python + .NET template UI)",
-      "status": "completed",
-      "priority": 18,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-05",
+      "name": "agents-route",
+      "title": "Agents list route",
+      "description": "GET /api/agents returns the parsed AgentDefinition[] from .claude/agents/.",
+      "acceptance": [
+        "Route returns leader, implementer, reviewer with full frontmatter",
+        "Test against this repo's own .claude/agents/"
+      ],
+      "status": "pending"
     },
     {
-      "id": "infra-003",
-      "label": "Multi-stage Dockerfile, docker-compose.yml, entrypoint.sh with UID/GID mapping + WSL2 warning",
-      "status": "completed",
-      "priority": 19,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "backend-route-06",
+      "name": "skills-route",
+      "title": "Skills list route",
+      "description": "GET /api/skills returns parsed SkillDefinition[].",
+      "acceptance": [
+        "Route returns the four bootstrap skills",
+        "Each entry includes name, description, body, source path"
+      ],
+      "status": "pending"
     },
     {
-      "id": "infra-004",
-      "label": "Fastify @fastify/static production SPA serving (single port 3001)",
-      "status": "completed",
-      "priority": 20,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "backend-route-07",
+      "name": "diagram-route",
+      "title": "Diagram route",
+      "description": "GET /api/diagram returns Mermaid string + parsed events.",
+      "acceptance": [
+        "Mermaid output passes parse validation",
+        "Optional ?feature=<id> filter restricts to one feature's interactions"
+      ],
+      "status": "pending"
     },
     {
-      "id": "infra-005",
-      "label": "Agent harness files (CLAUDE.md, init.sh, feature_list.json, claude-progress.txt, skills/)",
-      "status": "completed",
-      "priority": 21,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "backend-route-08",
+      "name": "templates-registry-route",
+      "title": "Templates registry route",
+      "description": "GET /api/templates lists built-in (python, dotnet) and uploaded templates.",
+      "acceptance": [
+        "Built-ins always present; uploaded templates loaded from data dir",
+        "Each entry exposes id, label, language, required placeholders"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-011",
-      "label": "Drag-to-reorder task priority in TasksView (API exists at PUT /api/tasks/reorder)",
-      "status": "completed",
-      "priority": 22,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-09",
+      "name": "templates-scaffold-route",
+      "title": "Template scaffold route",
+      "description": "POST /api/templates/:id/scaffold writes a new harness into a target directory with placeholder substitution.",
+      "acceptance": [
+        "Refuses to overwrite a non-empty target directory",
+        "Validates required placeholders before writing any file",
+        "Test scaffolds Python template into tmp dir and asserts file contents"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-012",
-      "label": "Custom template import via ZIP upload in ScaffoldView (loader.ts exists, UI missing)",
-      "status": "completed",
-      "priority": 23,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-10",
+      "name": "templates-upload-route",
+      "title": "Template upload route",
+      "description": "POST /api/templates accepts a ZIP, validates structure (must contain CLAUDE.md, AGENTS.md, feature_list.json, init.sh), registers as user template.",
+      "acceptance": [
+        "ZIP extraction sandboxed against path traversal",
+        "Invalid ZIP returns 422 with structured error",
+        "Test uploads a fixture ZIP and asserts it appears in the registry"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-013",
-      "label": "React error boundaries wrapping each view to prevent full-app crashes",
-      "status": "completed",
-      "priority": 24,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-11",
+      "name": "tracing-route",
+      "title": "Tracing route",
+      "description": "GET /api/tracing returns adapter-normalized recent traces (Langfuse + Helicone).",
+      "acceptance": [
+        "Adapter selected by env (LANGFUSE_BASE_URL or HELICONE_API_KEY)",
+        "Missing config returns empty list, not error",
+        "Adapter contract has a single getRecentTraces(limit) method"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-014",
-      "label": "Git log panel in Dashboard showing recent commits from mounted repo",
-      "status": "completed",
-      "priority": 25,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-route-12",
+      "name": "sse-events-route",
+      "title": "SSE events stream route",
+      "description": "GET /events long-lived SSE; replays last N events on connect.",
+      "acceptance": [
+        "Connection survives 60s idle (heartbeat ping every 15s)",
+        "Last 50 events replayed on connect",
+        "Watcher events propagate to all clients within 200ms of file change"
+      ],
+      "status": "pending"
     },
     {
-      "id": "backend-007",
-      "label": "GET /api/gitlog route using simple-git to read last N commits from MOUNT_PATH",
-      "status": "completed",
-      "priority": 26,
-      "category": "backend",
-      "metadata": {}
+      "id": "backend-watcher-01",
+      "name": "chokidar-wiring",
+      "title": "Chokidar watcher wiring",
+      "description": "Watch CLAUDE.md, AGENTS.md, CHECKPOINTS.md, feature_list.json, .claude/agents/**, .claude/skills/**, progress/**, docs/**.",
+      "acceptance": [
+        "Watcher emits HarnessChanged with the changed path",
+        "Tests use real Chokidar against a tmp dir, no mocks",
+        "Cleanly closes on SIGTERM"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-015",
-      "label": "Keyboard shortcuts for view navigation (1-6 keys for Dashboard/Tasks/Diagram/Skills/Tracing/Scaffold)",
-      "status": "completed",
-      "priority": 27,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-watcher-02",
+      "name": "debounce-event-bus",
+      "title": "Debounce + normalized event bus",
+      "description": "150ms debounce per file path; emit a single normalized HarnessChanged event per quiet window.",
+      "acceptance": [
+        "Rapid 10x writes within 100ms produce one event",
+        "Distinct paths debounced independently",
+        "Test asserts timing tolerance ±50ms"
+      ],
+      "status": "pending"
     },
     {
-      "id": "testing-001",
-      "label": "Vitest unit tests for all parsers (feature-list, skill, progress, agents-md) with fixture files",
-      "status": "completed",
-      "priority": 28,
-      "category": "testing",
-      "metadata": {}
+      "id": "backend-watcher-03",
+      "name": "polling-fallback",
+      "title": "Cross-platform polling fallback",
+      "description": "Honor CHOKIDAR_USEPOLLING=true for Docker bind mounts on macOS/Windows.",
+      "acceptance": [
+        "Env var flips usePolling on the Chokidar instance",
+        "Documented in docs/architecture.md",
+        "Smoke test under polling mode produces events for tmp dir changes"
+      ],
+      "status": "pending"
     },
     {
-      "id": "testing-002",
-      "label": "Vitest unit tests for template engine (renderTemplate, variable substitution edge cases)",
-      "status": "completed",
-      "priority": 29,
-      "category": "testing",
-      "metadata": {}
+      "id": "backend-tracing-01",
+      "name": "langfuse-adapter",
+      "title": "Langfuse adapter",
+      "description": "Pull recent traces from self-hosted Langfuse via env-configured base URL + key.",
+      "acceptance": [
+        "Adapter implements getRecentTraces(limit)",
+        "Test against a real fastify mock-server fixture (NOT vi.mock of fetch)",
+        "Errors normalized to TracingError"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-016",
-      "label": "Mermaid diagram export as PNG (use canvas conversion from SVG output)",
-      "status": "completed",
-      "priority": 30,
-      "category": "frontend",
-      "metadata": {}
+      "id": "backend-tracing-02",
+      "name": "helicone-adapter",
+      "title": "Helicone adapter",
+      "description": "Pull recent traces from Helicone via API key.",
+      "acceptance": [
+        "Adapter implements getRecentTraces(limit)",
+        "Test against a real fastify mock-server fixture",
+        "Errors normalized to TracingError"
+      ],
+      "status": "pending"
     },
     {
-      "id": "backend-008",
-      "label": "SSE broadcast on watcher start: emit harness:snapshot to newly connected clients that miss initial REST fetch",
-      "status": "completed",
-      "priority": 31,
-      "category": "backend",
-      "metadata": {}
+      "id": "backend-tracing-03",
+      "name": "tracing-adapter-registry",
+      "title": "Tracing adapter registry",
+      "description": "Pluggable registry; tracing route picks adapter by env var; missing config returns empty list, never errors.",
+      "acceptance": [
+        "Registry exposes resolveAdapter(env) returning Adapter | null",
+        "Tests cover both adapter selection and the no-config case"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-017",
-      "label": "AGENTS.md / CLAUDE.md raw content viewer panel in Dashboard",
-      "status": "completed",
-      "priority": 32,
-      "category": "frontend",
-      "metadata": {}
+      "id": "frontend-ds-01",
+      "name": "primitive-components",
+      "title": "Nothing Design primitive components",
+      "description": "Card, Badge, PillButton, MetricDisplay, SegmentedProgress, DotMatrix, MechanicalToggle, ErrorBoundary — all token-driven, no inline colors.",
+      "acceptance": [
+        "Each primitive has a Storybook-equivalent example in __tests__/<name>.test.tsx asserting rendered structure",
+        "All colors come from var(--color-*); zero hex literals in components",
+        "Touch targets ≥44px where interactive",
+        "Type signatures exported from the package index"
+      ],
+      "status": "pending"
     },
     {
-      "id": "frontend-018",
-      "label": "Search/filter input in Skills view",
-      "status": "completed",
-      "priority": 33,
-      "category": "frontend",
-      "metadata": {}
+      "id": "frontend-ds-02",
+      "name": "layout-shell",
+      "title": "Layout shell (AppShell + TopBar + Sidebar)",
+      "description": "Top-level grid with Sidebar nav (DASHBOARD/TASKS/AGENTS/SKILLS/DIAGRAM/SCAFFOLD/TRACING) and TopBar status; useKeyboardNav hook for 1-7 shortcuts.",
+      "acceptance": [
+        "Shell renders without layout shift on viewport resize 320-1920px",
+        "Keyboard 1-7 changes active view; tested via Testing Library fireEvent",
+        "Active view indicator uses the bracket-style Nothing Design pattern"
+      ],
+      "status": "pending"
     },
     {
-      "id": "harness-001",
-      "label": "Add .claude/agents/ role definitions (leader, implementer, reviewer) aligned to Anthropic multi-agent pattern",
-      "status": "completed",
-      "priority": 34,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "frontend-ds-03",
+      "name": "connection-banner",
+      "title": "SSE connection banner",
+      "description": "MetricDisplay-based banner showing SSE connection state; turns color-critical when disconnected for >2s.",
+      "acceptance": [
+        "Banner reflects useSSE() connection state",
+        "Disconnect/reconnect cycle is visible within 1s",
+        "No layout shift when state changes"
+      ],
+      "status": "pending"
     },
     {
-      "id": "harness-002",
-      "label": "Add progress/current.md (live session state) and progress/history.md (archive), migrate from claude-progress.txt",
-      "status": "completed",
-      "priority": 35,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "frontend-view-01",
+      "name": "dashboard-view",
+      "title": "Dashboard view",
+      "description": "Composite of HarnessStatusCard, TaskSummaryCard, AgentsMdViewer, ProgressCurrentPanel, GitLogPanel, AgentActivityFeed.",
+      "acceptance": [
+        "All sub-cards render real data when /api/harness returns a snapshot",
+        "Empty states are explicit ('[NO ACTIVE FEATURE]') not blank panels",
+        "Test asserts each sub-card by role/text"
+      ],
+      "status": "pending"
     },
     {
-      "id": "harness-003",
-      "label": "Add CHECKPOINTS.md with objective quality gates C1-C5",
-      "status": "completed",
-      "priority": 36,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "frontend-view-02",
+      "name": "tasks-view",
+      "title": "Tasks view",
+      "description": "Task list with status, hierarchy, drag-to-reorder (dnd-kit), inline add/edit/delete via TaskForm.",
+      "acceptance": [
+        "Drag reorder calls /api/features/reorder and reflects new order on success",
+        "Optimistic update with rollback on 4xx",
+        "Inline edit validates acceptance criteria are non-empty",
+        "Tests use real DOM with dnd-kit Provider, not snapshot"
+      ],
+      "status": "pending"
     },
     {
-      "id": "harness-004",
-      "label": "Add docs/ directory (architecture.md, conventions.md, verification.md)",
-      "status": "completed",
-      "priority": 37,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "frontend-view-03",
+      "name": "agents-view",
+      "title": "Agents view",
+      "description": "Card grid of AgentDefinition with frontmatter chips (tools), expandable body.",
+      "acceptance": [
+        "Each card shows name, description, tools as chips",
+        "Body expands inline (no modal) per Nothing Design rule",
+        "Test asserts all three reference agents render"
+      ],
+      "status": "pending"
     },
     {
-      "id": "harness-005",
-      "label": "Shared types: AgentDefinition interface, 4 new SSE event types (agents:updated, progress-current:updated, progress-history:updated, checkpoints:updated)",
-      "status": "completed",
-      "priority": 38,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "frontend-view-04",
+      "name": "skills-view",
+      "title": "Skills view",
+      "description": "Card grid of SkillDefinition with description and body link.",
+      "acceptance": [
+        "Search input filters skills by name + description (debounced 200ms)",
+        "Test covers empty state and search filter"
+      ],
+      "status": "pending"
     },
     {
-      "id": "harness-006",
-      "label": "Backend: agent.parser.ts + register all 4 new parsers in parsers/index.ts, update buildHarnessSnapshot",
-      "status": "completed",
-      "priority": 39,
-      "category": "backend",
-      "metadata": {}
+      "id": "frontend-view-05",
+      "name": "diagram-view",
+      "title": "Sub-agent interaction diagram view",
+      "description": "Mermaid sequence diagram of subagent interactions parsed from history; pan/zoom; click an actor to filter.",
+      "acceptance": [
+        "Renders a non-empty diagram for this repo's own harness",
+        "Click on actor filters the diagram (re-renders)",
+        "Pan/zoom via mouse wheel + drag; tested with Testing Library user-event"
+      ],
+      "status": "pending"
     },
     {
-      "id": "harness-007",
-      "label": "Frontend: AgentsView replacing Skills view (agent role cards + checkpoint sections), ProgressCurrentPanel in Dashboard",
-      "status": "completed",
-      "priority": 40,
-      "category": "frontend",
-      "metadata": {}
+      "id": "frontend-view-06",
+      "name": "scaffold-view",
+      "title": "Scaffold view",
+      "description": "Template picker (built-in + uploaded), placeholder form, target path input, dry-run preview, scaffold action.",
+      "acceptance": [
+        "Dry run shows file tree preview without writing",
+        "Validation errors surface inline next to each placeholder field",
+        "Successful scaffold shows a [DONE] confirmation; failed scaffold shows error inline"
+      ],
+      "status": "pending"
     },
     {
-      "id": "harness-008",
-      "label": "Update CLAUDE.md to leader-role pattern, init.sh harness structure validation, README Anthropic reference",
-      "status": "completed",
-      "priority": 41,
-      "category": "infrastructure",
-      "metadata": {}
+      "id": "frontend-view-07",
+      "name": "tracing-view",
+      "title": "Tracing view",
+      "description": "Adapter selector tabs (Langfuse/Helicone), recent traces list, trace detail panel.",
+      "acceptance": [
+        "Tabs only show configured adapters",
+        "Trace list paginates by 20",
+        "Detail panel displays span tree with relative durations"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "templates-01",
+      "name": "templates-engine",
+      "title": "Template engine core",
+      "description": "String template substitution with {{placeholder}} syntax; validates required placeholders.",
+      "acceptance": [
+        "renderTemplate(template, vars) errors clearly on missing placeholder",
+        "Escapes are honored ({{{literal}}} renders {{literal}})",
+        "Tests cover happy path, missing var, escaped braces"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "templates-02",
+      "name": "python-template",
+      "title": "Built-in Python harness template",
+      "description": "CLAUDE.md, AGENTS.md, feature_list.json, init.sh, SKILL.md templates tuned for Python (python -m unittest discover).",
+      "acceptance": [
+        "Scaffold into tmp dir; running its init.sh exits 0 (with python3 available)",
+        "Placeholders: PROJECT_NAME, PROJECT_DESCRIPTION, PYTHON_MIN_VERSION",
+        "init.sh template is executable and POSIX-compliant"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "templates-03",
+      "name": "dotnet-template",
+      "title": "Built-in .NET harness template",
+      "description": "Same set tuned for .NET (dotnet test, dotnet build in init.sh).",
+      "acceptance": [
+        "Scaffold into tmp dir; running its init.sh exits 0 (with dotnet available)",
+        "Placeholders: PROJECT_NAME, PROJECT_DESCRIPTION, DOTNET_VERSION",
+        "init.sh template is executable and POSIX-compliant"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "templates-04",
+      "name": "user-template-registry",
+      "title": "User-uploaded template registry",
+      "description": "Persist uploaded ZIPs under data dir, scan on boot.",
+      "acceptance": [
+        "Data dir configurable via TEMPLATES_DIR env (default /data/templates)",
+        "Boot scan registers all valid templates",
+        "Invalid templates logged but do not crash boot"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "docker-01",
+      "name": "image-size-and-multiarch",
+      "title": "Dockerfile size budget + multi-arch",
+      "description": "Tighten Dockerfile to <250MB final image; build amd64 + arm64.",
+      "acceptance": [
+        "Final image size <250MB on linux/amd64 and linux/arm64",
+        "GitHub Actions docker workflow builds both arches",
+        "Smoke test passes on both arches in CI"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "docker-02",
+      "name": "compose-troubleshooting",
+      "title": "Compose REPO_PATH troubleshooting docs",
+      "description": "Document common path issues (Mac File Sharing, Windows path translation) in README.",
+      "acceptance": [
+        "README has a Troubleshooting section with copy-pastable fixes",
+        "Compose file fails fast with clear error if REPO_PATH unset"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "docker-03",
+      "name": "windows-path-support",
+      "title": "Windows host path support",
+      "description": "entrypoint.sh + watcher polling fallback verified on Windows host with WSL2.",
+      "acceptance": [
+        "Manual test on Windows + WSL2 documented in docs/architecture.md",
+        "CHOKIDAR_USEPOLLING auto-set when MOUNT_PATH starts with /mnt/",
+        "Path normalization handles forward and backslash inputs"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "docker-04",
+      "name": "graceful-shutdown",
+      "title": "Health and graceful shutdown",
+      "description": "SIGTERM closes Fastify and watcher cleanly within 5s.",
+      "acceptance": [
+        "Shutdown logs explicit 'closed watcher' and 'closed fastify' messages",
+        "Container stops within 5s of docker stop",
+        "Test sends SIGTERM to a real backend instance and asserts clean exit"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "e2e-01",
+      "name": "self-hosting-smoke",
+      "title": "Self-hosting smoke test",
+      "description": "Run H-Orchestra Docker container against this repo's own harness; assert all views render with non-empty data.",
+      "acceptance": [
+        "CI job builds image, mounts ${{ github.workspace }} as /mounted-repo",
+        "curl /api/harness returns non-empty features and agents",
+        "Headless browser hits / and asserts root text 'H-ORCHESTRA' present"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "e2e-02",
+      "name": "reorder-roundtrip",
+      "title": "Reorder + persist roundtrip",
+      "description": "Reorder features in UI, assert feature_list.json on disk reflects order, no JSON formatting drift.",
+      "acceptance": [
+        "Playwright (or equivalent) test drags task and asserts file change",
+        "Diff of feature_list.json is exactly the reorder, no whitespace drift"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "e2e-03",
+      "name": "scaffold-roundtrip",
+      "title": "Scaffold roundtrip",
+      "description": "Scaffold a Python harness into a tmp dir, run its init.sh, assert exit 0.",
+      "acceptance": [
+        "End-to-end scaffold + run init.sh in CI on a Linux runner with python3 installed",
+        "Generated CLAUDE.md/AGENTS.md/feature_list.json all parse with the H-Orchestra parsers"
+      ],
+      "status": "pending"
     }
   ]
 }

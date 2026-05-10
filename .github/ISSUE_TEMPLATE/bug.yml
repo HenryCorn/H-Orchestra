@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a defect in H-Orchestra
+title: '[Bug] '
+labels: ['bug', 'triage']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What went wrong?
+      placeholder: When I open the Tasks view, the drag handle doesn't respond...
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered list, please.
+      placeholder: |
+        1. `REPO_PATH=/path docker compose up`
+        2. Open http://localhost:3001
+        3. Click TASKS
+        4. Try to drag the third row
+    validations:
+      required: true
+
+  - type: input
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: input
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment
+      options:
+        - Docker (compose)
+        - Docker (run)
+        - Local (pnpm dev)
+        - CI
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Host OS and version
+      placeholder: macOS 14.5 (Apple Silicon) / Ubuntu 22.04 / Windows 11 + WSL2
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: v20.11.1
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output from `/tmp/harness_init.log`, browser console, or `docker logs`.
+      render: shell
