@@ -1,15 +1,14 @@
 # Current Session
 
 **Active feature:** none
-**Started at:** 2026-05-10 (bootstrap)
-**Last action:** Greenfield bootstrap committed.
-**Next:** Leader picks the first `pending` feature in id order from `feature_list.json`.
+**Started at:** 2026-05-10
+**Last action:** infra-04 marked done (APPROVED by reviewer).
+**Next:** Leader picks next `pending` feature: backend-parser-01 (feature-list-parser).
 
 ## Plan
 
-- Read CLAUDE.md, AGENTS.md, CHECKPOINTS.md.
-- Run `./init.sh`.
-- Pick first `pending` feature; mark `in_progress`; dispatch implementer.
+- infra-01..04: all DONE
+- Next up: backend-parser-01 (feature_list.json parser)
 
 ## Subagent in flight
 

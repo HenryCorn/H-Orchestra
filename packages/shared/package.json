@@ -17,8 +17,11 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"no tests yet for @h-orchestra/shared\" && exit 0",
+    "test": "vitest run",
     "lint": "echo \"no lint yet for @h-orchestra/shared\" && exit 0",
     "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.5"
   }
 }

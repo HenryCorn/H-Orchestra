@@ -23,7 +23,7 @@
         "Types are importable from backend and frontend via @h-orchestra/shared",
         "At least one test file exercises the type shapes via runtime assertions"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "infra-02",
@@ -36,7 +36,7 @@
         "Constants and types are paired (no event name without a payload type)",
         "Unit test asserts every event name has a matching payload type"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "infra-03",
@@ -48,7 +48,7 @@
         "Tests cover macOS, POSIX, and Windows-style inputs against real strings",
         "Functions are pure and have no fs side effects"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "infra-04",
@@ -61,7 +61,7 @@
         "Root-level eslint.config.js defines flat config; pnpm lint runs across all packages",
         "ESLint forbids no-unused-vars (with _-prefixed exception), no-explicit-any without justification"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "backend-parser-01",
