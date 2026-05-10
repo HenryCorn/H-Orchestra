@@ -1,0 +1,20 @@
+{
+  "name": "h-orchestra",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm --filter @h-orchestra/shared build && pnpm --filter @h-orchestra/frontend build && pnpm --filter @h-orchestra/backend build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

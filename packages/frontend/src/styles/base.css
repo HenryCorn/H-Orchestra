@@ -1,0 +1,65 @@
+@import "./tokens.css";
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  background-color: #000000;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === Three-layer typography === */
+.text-display {
+  font-family: var(--font-display);
+  font-size: var(--font-size-display);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.text-heading {
+  font-family: var(--font-body);
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.text-body {
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  font-weight: 400;
+}
+
+.text-metadata {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-metadata);
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* === Dot-matrix background === */
+.dot-matrix {
+  background-image: radial-gradient(
+    circle,
+    var(--dot-color) var(--border-width),
+    transparent var(--border-width)
+  );
+  background-size: var(--dot-spacing) var(--dot-spacing);
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-secondary); }

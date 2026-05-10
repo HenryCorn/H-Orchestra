@@ -1,0 +1,332 @@
+{
+  "tasks": [
+    {
+      "id": "infra-001",
+      "label": "pnpm monorepo scaffolding (workspace.yaml, tsconfig.base, package.json)",
+      "status": "completed",
+      "priority": 1,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "infra-002",
+      "label": "Shared type definitions (SSEEvent union, HarnessSnapshot, FeatureTask, tracing, template types)",
+      "status": "completed",
+      "priority": 2,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "backend-001",
+      "label": "Fastify server factory with CORS, SSE client registry, /health endpoint",
+      "status": "completed",
+      "priority": 3,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "backend-002",
+      "label": "ChokidarWatcher with debounce, platform detection, EMFILE error handling",
+      "status": "completed",
+      "priority": 4,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "backend-003",
+      "label": "Parser registry + all parsers (feature-list, skill, progress, agents-md, mermaid builder)",
+      "status": "completed",
+      "priority": 5,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "backend-004",
+      "label": "All REST routes (harness, tasks CRUD, skills, tracing, templates, scaffold)",
+      "status": "completed",
+      "priority": 6,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "backend-005",
+      "label": "Langfuse + Helicone tracing adapters",
+      "status": "completed",
+      "priority": 7,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "backend-006",
+      "label": "Template engine ({{PLACEHOLDER}} substitution), built-in Python + .NET templates",
+      "status": "completed",
+      "priority": 8,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-001",
+      "label": "Vite + React 19 + Tailwind CSS 4 + Nothing Design token system",
+      "status": "completed",
+      "priority": 9,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-002",
+      "label": "useSSE hook with exponential backoff, Zustand harness + UI stores, typed API client",
+      "status": "completed",
+      "priority": 10,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-003",
+      "label": "Layout components (AppShell, Sidebar, TopBar, ConnectionBanner)",
+      "status": "completed",
+      "priority": 11,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-004",
+      "label": "Primitive components (PillButton, Card, Badge, SegmentedProgress, MechanicalToggle, MetricDisplay, DotMatrix)",
+      "status": "completed",
+      "priority": 12,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-005",
+      "label": "Dashboard view (HarnessStatusCard, TaskSummaryCard, AgentActivityFeed)",
+      "status": "completed",
+      "priority": 13,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-006",
+      "label": "Tasks view with status cycling, add/delete, filter by status",
+      "status": "completed",
+      "priority": 14,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-007",
+      "label": "Diagram view (MermaidRenderer with dark theme + Space Mono font override)",
+      "status": "completed",
+      "priority": 15,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-008",
+      "label": "Skills view (SkillCard + SkillDetail with YAML frontmatter parsing)",
+      "status": "completed",
+      "priority": 16,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-009",
+      "label": "Tracing view (ProviderSelector, TraceList, SpanTree for Langfuse + Helicone)",
+      "status": "completed",
+      "priority": 17,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-010",
+      "label": "Scaffold view (TemplateCard, VariableForm, built-in Python + .NET template UI)",
+      "status": "completed",
+      "priority": 18,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "infra-003",
+      "label": "Multi-stage Dockerfile, docker-compose.yml, entrypoint.sh with UID/GID mapping + WSL2 warning",
+      "status": "completed",
+      "priority": 19,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "infra-004",
+      "label": "Fastify @fastify/static production SPA serving (single port 3001)",
+      "status": "completed",
+      "priority": 20,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "infra-005",
+      "label": "Agent harness files (CLAUDE.md, init.sh, feature_list.json, claude-progress.txt, skills/)",
+      "status": "completed",
+      "priority": 21,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-011",
+      "label": "Drag-to-reorder task priority in TasksView (API exists at PUT /api/tasks/reorder)",
+      "status": "completed",
+      "priority": 22,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-012",
+      "label": "Custom template import via ZIP upload in ScaffoldView (loader.ts exists, UI missing)",
+      "status": "completed",
+      "priority": 23,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-013",
+      "label": "React error boundaries wrapping each view to prevent full-app crashes",
+      "status": "completed",
+      "priority": 24,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-014",
+      "label": "Git log panel in Dashboard showing recent commits from mounted repo",
+      "status": "completed",
+      "priority": 25,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "backend-007",
+      "label": "GET /api/gitlog route using simple-git to read last N commits from MOUNT_PATH",
+      "status": "completed",
+      "priority": 26,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-015",
+      "label": "Keyboard shortcuts for view navigation (1-6 keys for Dashboard/Tasks/Diagram/Skills/Tracing/Scaffold)",
+      "status": "completed",
+      "priority": 27,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "testing-001",
+      "label": "Vitest unit tests for all parsers (feature-list, skill, progress, agents-md) with fixture files",
+      "status": "completed",
+      "priority": 28,
+      "category": "testing",
+      "metadata": {}
+    },
+    {
+      "id": "testing-002",
+      "label": "Vitest unit tests for template engine (renderTemplate, variable substitution edge cases)",
+      "status": "completed",
+      "priority": 29,
+      "category": "testing",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-016",
+      "label": "Mermaid diagram export as PNG (use canvas conversion from SVG output)",
+      "status": "completed",
+      "priority": 30,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "backend-008",
+      "label": "SSE broadcast on watcher start: emit harness:snapshot to newly connected clients that miss initial REST fetch",
+      "status": "completed",
+      "priority": 31,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-017",
+      "label": "AGENTS.md / CLAUDE.md raw content viewer panel in Dashboard",
+      "status": "completed",
+      "priority": 32,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "frontend-018",
+      "label": "Search/filter input in Skills view",
+      "status": "completed",
+      "priority": 33,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "harness-001",
+      "label": "Add .claude/agents/ role definitions (leader, implementer, reviewer) aligned to Anthropic multi-agent pattern",
+      "status": "completed",
+      "priority": 34,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "harness-002",
+      "label": "Add progress/current.md (live session state) and progress/history.md (archive), migrate from claude-progress.txt",
+      "status": "completed",
+      "priority": 35,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "harness-003",
+      "label": "Add CHECKPOINTS.md with objective quality gates C1-C5",
+      "status": "completed",
+      "priority": 36,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "harness-004",
+      "label": "Add docs/ directory (architecture.md, conventions.md, verification.md)",
+      "status": "completed",
+      "priority": 37,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "harness-005",
+      "label": "Shared types: AgentDefinition interface, 4 new SSE event types (agents:updated, progress-current:updated, progress-history:updated, checkpoints:updated)",
+      "status": "completed",
+      "priority": 38,
+      "category": "infrastructure",
+      "metadata": {}
+    },
+    {
+      "id": "harness-006",
+      "label": "Backend: agent.parser.ts + register all 4 new parsers in parsers/index.ts, update buildHarnessSnapshot",
+      "status": "completed",
+      "priority": 39,
+      "category": "backend",
+      "metadata": {}
+    },
+    {
+      "id": "harness-007",
+      "label": "Frontend: AgentsView replacing Skills view (agent role cards + checkpoint sections), ProgressCurrentPanel in Dashboard",
+      "status": "completed",
+      "priority": 40,
+      "category": "frontend",
+      "metadata": {}
+    },
+    {
+      "id": "harness-008",
+      "label": "Update CLAUDE.md to leader-role pattern, init.sh harness structure validation, README Anthropic reference",
+      "status": "completed",
+      "priority": 41,
+      "category": "infrastructure",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_NAME="{{PROJECT_NAME}}"
+
+echo "=== Initializing $PROJECT_NAME (.NET {{DOTNET_VERSION}}) ==="
+
+dotnet restore
+
+echo "=== Building solution ==="
+dotnet build --no-restore -c Release
+
+echo "=== Running baseline tests ==="
+dotnet test --no-build -c Release --filter "{{TEST_FILTER}}" --logger "console;verbosity=minimal" || true
+
+echo "=== Init complete for $PROJECT_NAME ==="
